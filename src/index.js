@@ -1,3 +1,6 @@
+import express from 'express';
+const app = express();
+const PORT = process.env.PORT || 3000;
 import 'dotenv/config';
 import { Client, GatewayIntentBits } from 'discord.js';
 import { registerCommands, setupInteractionHandlers } from './discord.js';
@@ -78,3 +81,11 @@ process.on('unhandledRejection', (error) => {
 
 // Đăng nhập bot
 client.login(DISCORD_TOKEN);
+
+app.get('/', (req, res) => {
+  res.send('Bot đang hoạt động!');
+});
+
+app.listen(PORT, () => {
+  console.log(`[INFO] Server đang chạy tại http://localhost:${PORT}`);
+});
