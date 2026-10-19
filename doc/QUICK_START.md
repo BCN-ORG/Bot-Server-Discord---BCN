@@ -41,10 +41,18 @@ MONGODB_DB_NAME=discord-bot
 # Name Validation (OPTIONAL)
 VALIDATION_EXCEPTION_UIDS=uid1,uid2
 
+# CORS (OPTIONAL; comma-separated browser origins)
+CORS_ALLOWED_ORIGINS=http://localhost:1,http://localhost:0
+
+# API authentication (REQUIRED for birthday endpoints; comma-separated keys)
+API_KEYS=replace_with_a_long_random_key
+
 # Payroll (REQUIRED for payroll feature)
 PAYROLL_API_KEY=your_api_key
 PAYROLL_API_BASE_URL=http://host:3000/api/payroll
 ```
+
+Khi thay/rotate key trong env, khởi động lại server để áp dụng cấu hình mới.
 
 ### 4. Run
 ```bash

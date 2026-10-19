@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
-import { updateSalaryConfig } from '../../../database/payroll.js';
+import { updateSalaryConfig, getSalaryConfig } from '../../../database/payroll.js';
 import { updateSchedule } from '../scheduler.js';
 
 /**
@@ -77,6 +77,36 @@ export async function execute(interaction, client) {
     const dayChoice = interaction.options.getString('day');
     const hour = interaction.options.getInteger('hour');
     const minute = interaction.options.getInteger('minute');
+
+    // Neu khong co param nao → XEM lich hien tai
+    if (!dayChoice && hour === null && minute === null) {
+      const config = await getSalaryConfig();
+      
+      const embed = new EmbedBuilder()
+        .setColor('#0099ff')
+        .setTitle('📅 LỊCH TRẢ LƯƠNG HIỆN TẠI')
+        .addFields(
+          { name: 'Ngày', value: DAY_NAMES_VI[config.dayOfWeek], inline: true },
+          { name: 'Giờ', value: `${String(config.hour).padStart(2, '0')}:${String(config.minute).padStart(2, '0')}`, inline: true },
+          { name: 'Múi giờ', value: config.timezone, inline: true }
+        )
+        .setFooter({ text: 'Dùng /salary-schedule <day> <hour> <minute> để thay đổi' })
+        .setTimestamp();
+
+      await interaction.reply({ embeds: [embed], ephemeral: true });
+      return;
+    }
+
+    // Neu co param → SET lich moi (phai day du)
+    if (!dayChoice || hour === null || minute === null) {
+      const errorEmbed = new EmbedBuilder()
+        .setColor('#ff0000')
+        .setTitle('❌ Lỗi')
+        .setDescription('Để đặt lịch mới, cần cung cấp đầy đủ: day, hour, minute');
+
+      await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+      return;
+    }
 
     // Chuyen doi day choice sang day of week number
     const dayOfWeek = DAY_MAP[dayChoice];

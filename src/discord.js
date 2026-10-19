@@ -21,7 +21,10 @@ export async function registerCommands(token, clientId, guildId) {
     payrollFeature.salaryNotificationRoles.data.toJSON(),
     payrollFeature.salaryDebts.data.toJSON(),
     payrollFeature.salaryDebtDetail.data.toJSON(),
-    payrollFeature.salaryPayDebt.data.toJSON()
+    payrollFeature.salaryPayDebt.data.toJSON(),
+    payrollFeature.salaryPreview.data.toJSON(),
+    payrollFeature.salaryCheck.data.toJSON(),
+    payrollFeature.salaryInfo.data.toJSON()
   ];
 
   const rest = new REST({ version: '10' }).setToken(token);
@@ -102,7 +105,22 @@ export function setupInteractionHandlers(client) {
         await payrollFeature.salaryPayDebt.execute(interaction);
       }
 
-      // Xu ly nut bam mthêmo modal
+      // Xu ly lenh /salary-preview
+      if (interaction.isChatInputCommand() && interaction.commandName === 'salary-preview') {
+        await payrollFeature.salaryPreview.execute(interaction, client);
+      }
+
+      // Xu ly lenh /salary-check
+      if (interaction.isChatInputCommand() && interaction.commandName === 'salary-check') {
+        await payrollFeature.salaryCheck.execute(interaction);
+      }
+
+      // Xu ly lenh /salary-info
+      if (interaction.isChatInputCommand() && interaction.commandName === 'salary-info') {
+        await payrollFeature.salaryInfo.execute(interaction, client);
+      }
+
+      // Xu ly nut bam mo modal
       if (interaction.isButton() && interaction.customId === 'open_rename_modal') {
         const modal = renameFeature.createRenameModal();
         await renameFeature.handleButtonClick(interaction, modal);

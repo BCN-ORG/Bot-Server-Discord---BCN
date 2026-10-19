@@ -16,3 +16,15 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Cloudflare Tunnel credentials (phòng trường hợp copy vào project)
+.cloudflared/
+*.cloudflared.json
+cloudflared.yml
+
+# Atlas MongoDB credentials
+atlas-credentials.env
+
+# Test và debug scripts
+test-*.js
+check-*.js

@@ -6,7 +6,6 @@ import {
   createDebt
 } from '../../../database/payroll.js';
 import { transferPayment, getBalance } from './apiClient.js';
-import { format } from 'date-fns';
 
 function getCurrentPayrollPeriod(date = new Date()) {
   const parts = new Intl.DateTimeFormat('en', {
@@ -58,26 +57,29 @@ function getUserEligibleRoles(member, eligibleRoleIds) {
 }
 
 /**
- * Tinh tong luong cua user dua tren tat ca role dang co
- * @param {Array<Object>} memberRoles 
- * @param {Array<Object>} coefficients 
+ * Tinh tong luong cua user dua tren TAT CA role dang co (tru @everyone va bot roles)
+ * @param {GuildMember} member - Discord guild member
+ * @param {Map<string, number>} coefficientMap - Map roleId -> coefficient
  */
-function calculateUserSalary(memberRoles, coefficients) {
-  // Tao map coefficients de lookup nhanh
-  const coefficientMap = new Map();
-  for (const coef of coefficients) {
-    coefficientMap.set(coef.roleId, coef.coefficient);
-  }
-  
-  // Tinh tong coefficient
+function calculateUserSalary(member, coefficientMap) {
   let total = 0;
   const roleDetails = [];
   
-  for (const role of memberRoles) {
-    const coefficient = coefficientMap.get(role.roleId) ?? 1;
+  // Duyet tat ca roles cua member
+  for (const [roleId, role] of member.roles.cache) {
+    // Bo qua @everyone role (roleId === guildId)
+    if (role.id === member.guild.id) continue;
+    
+    // Bo qua bot roles (managed roles)
+    if (role.managed) continue;
+    
+    // Lay coefficient tu DB hoac mac dinh = 1
+    const coefficient = coefficientMap.get(roleId) ?? 1;
     total += coefficient;
+    
     roleDetails.push({
-      ...role,
+      roleId: role.id,
+      roleName: role.name,
       coefficient
     });
   }
@@ -156,8 +158,12 @@ export async function processWeeklyPayroll(client) {
 
     console.log(`[Payroll] Found ${uniqueMembers.size} unique members to process`);
 
-    // 4. Lay he so luong
+    // 4. Lay he so luong va tao map
     const coefficients = await getAllCoefficients();
+    const coefficientMap = new Map();
+    for (const coef of coefficients) {
+      coefficientMap.set(coef.roleId, coef.coefficient);
+    }
 
     const period = getCurrentPayrollPeriod();
     const periodHistory = await getHistoryByPeriod(guildId, period);
@@ -177,7 +183,7 @@ export async function processWeeklyPayroll(client) {
       if (alreadyPaidUsers.has(memberId)) continue;
       const userEligibleRoles = getUserEligibleRoles(member, eligibleRoleIds);
       if (userEligibleRoles.length === 0) continue;
-      const salaryInfo = calculateUserSalary(userEligibleRoles, coefficients);
+      const salaryInfo = calculateUserSalary(member, coefficientMap);
       if (salaryInfo.amount === 0) continue;
       totalNeeded += salaryInfo.amount;
       memberCalculations.push({ memberId, member, userEligibleRoles, salaryInfo });
@@ -190,7 +196,7 @@ export async function processWeeklyPayroll(client) {
     if (currentBalance < totalNeeded && memberCalculations.length > 0) {
       const now = new Date();
       const deficit = totalNeeded - currentBalance;
-      const debtId = format(now, 'ddMMyyyyHHmm');
+      const debtId = period; // Dung period (2026-W43) lam debtId
 
       const unpaidMembers = memberCalculations.map(calc => ({
         userId: calc.memberId,
@@ -203,6 +209,7 @@ export async function processWeeklyPayroll(client) {
       await createDebt({
         debtId,
         payrollDate: now,
+        period, // Luu them period de tien query
         totalCoinsNeeded: totalNeeded,
         walletBalance: currentBalance,
         deficit,
@@ -248,7 +255,7 @@ export async function processWeeklyPayroll(client) {
           continue;
         }
 
-        // a. Lay cac role ma user co
+        // a. Lay cac role ma user co (de check eligible)
         const userEligibleRoles = getUserEligibleRoles(member, eligibleRoleIds);
         
         if (userEligibleRoles.length === 0) {
@@ -257,19 +264,16 @@ export async function processWeeklyPayroll(client) {
           continue;
         }
 
-        const memberRoles = [...member.roles.cache.values()].map(role => ({
-          roleId: role.id,
-          roleName: role.name
-        }));
+        // b. Tinh luong dua tren TAT CA roles (khong chi eligible)
+        const salaryInfo = calculateUserSalary(member, coefficientMap);
+        
+        // Log chi tiet tung role
+        const roleBreakdown = salaryInfo.roleDetails.map(r => `${r.roleName}(${r.coefficient})`).join(' + ');
         console.log(
-          `[Payroll] Roles for ${member.user.tag} (${userId}): ${JSON.stringify(memberRoles.map(role => role.roleId))}`
+          `[Payroll] ${member.user.tag} (${userId}): ${salaryInfo.roleDetails.length} roles counted`
         );
-
-        // b. Tinh luong
-        const salaryInfo = calculateUserSalary(memberRoles, coefficients);
-        console.log(
-          `[Payroll] Salary calculation for ${member.user.tag} (${userId}): ${JSON.stringify(salaryInfo.roleDetails)}; total=${salaryInfo.rawAmount}, amount=${salaryInfo.amount}`
-        );
+        console.log(`[Payroll]   Formula: ${roleBreakdown} = ${salaryInfo.rawAmount} coins${salaryInfo.isCapped ? ' (capped to 100)' : ''}`);
+        console.log(`[Payroll]   Final amount: ${salaryInfo.amount} coins`);
         
         if (salaryInfo.amount === 0) {
           console.log(`[Payroll] Skipping ${member.user.tag}: amount is 0`);

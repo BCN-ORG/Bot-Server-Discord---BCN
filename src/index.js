@@ -1,4 +1,5 @@
 import express from 'express';
+import cors from 'cors';
 const app = express();
 const PORT = process.env.PORT || 3000;
 import 'dotenv/config';
@@ -10,9 +11,36 @@ import { handleVoiceStateUpdate } from './events/voiceStateUpdate.js';
 import { handleMessageCreate } from './events/messageCreate.js';
 import { startViolationChecker } from './schedulers/violationChecker.js';
 import { connectMongoDB } from './database/mongodb.js';
+import { connectBCN } from './database/bcn.js';
 import { initPayrollScheduler, initNotificationScheduler } from './features/payroll/index.js';
+import apiRoutes from './routes/index.js';
+import { createApiKeyAuth } from './middleware/apiKeyAuth.js';
 
 const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
+
+// Middleware
+const corsOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+
+const corsOrigin = corsOrigins.includes('*') ? '*' : corsOrigins;
+app.use(cors({ origin: corsOrigin }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// API Routes
+app.use('/api/birthdays', createApiKeyAuth(process.env.API_KEYS));
+app.use('/api', apiRoutes);
+
+// Health check route
+app.get('/', (req, res) => {
+  res.json({
+    status: 'running',
+    message: 'Discord Bot is active',
+    timestamp: new Date().toISOString()
+  });
+});
 
 // Kiểm tra biến môi trường
 if (!DISCORD_TOKEN || !CLIENT_ID || !GUILD_ID) {
@@ -35,11 +63,19 @@ const client = new Client({
 client.once('ready', async () => {
   console.log(`[SUCCESS] Bot đã đăng nhập: ${client.user.tag}`);
   
-  // Kết nối MongoDB
+  // Kết nối MongoDB (discord_bot database)
   try {
     await connectMongoDB();
   } catch (error) {
     console.error('[ERROR] Không thể kết nối MongoDB. Bot sẽ thoát.');
+    process.exit(1);
+  }
+  
+  // Kết nối BCN database (members collection)
+  try {
+    await connectBCN();
+  } catch (error) {
+    console.error('[ERROR] Không thể kết nối BCN database. Bot sẽ thoát.');
     process.exit(1);
   }
   
@@ -85,10 +121,11 @@ process.on('unhandledRejection', (error) => {
 // Đăng nhập bot
 client.login(DISCORD_TOKEN);
 
-app.get('/', (req, res) => {
-  res.send('Bot đang hoạt động!');
-});
-
+// Start Express server
 app.listen(PORT, () => {
-  console.log(`[INFO] Server đang chạy tại http://localhost:${PORT}`);
+  console.log(`[INFO] Express server đang chạy tại http://localhost:${PORT}`);
+  console.log(`[INFO] API endpoints:`);
+  console.log(`       - GET  http://localhost:${PORT}/api/health`);
+  console.log(`       - GET  http://localhost:${PORT}/api/birthdays/today`);
+  console.log(`       - POST http://localhost:${PORT}/api/birthdays/by-date`);
 });

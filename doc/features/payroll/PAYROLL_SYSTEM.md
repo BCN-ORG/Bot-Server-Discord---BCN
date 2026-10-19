@@ -924,8 +924,31 @@ Enough?          Still not?
 | `/salary-debts list` | Xem danh sách nợ | `/salary-debts list` |
 | `/salary-debt-detail <debtId>` | Chi tiết khoản nợ | `/salary-debt-detail 191020260831` |
 | `/salary-pay-debt <debtId>` | Trả nợ cho một đợt | `/salary-pay-debt 191020260831` |
+| `/salary-preview` | Xem preview tổng coins cần trả | `/salary-preview` |
+| `/salary-info` | Xem tổng hợp hệ thống (lịch + preview) | `/salary-info` |
 
-**Tất cả commands đều yêu cầu Administrator permission**
+**Tất cả commands trên đều yêu cầu Administrator permission**
+
+---
+
+### Member Commands
+
+Lệnh cho thành viên thường (không cần quyền Admin):
+
+| Command | Mô tả | Ví dụ |
+|---------|-------|-------|
+| `/salary-check` | Kiểm tra lương cá nhân | `/salary-check` |
+
+**Lệnh này hiển thị:**
+- Danh sách tất cả roles của bạn (trừ @everyone và bot roles)
+- Hệ số của mỗi role (từ DB hoặc mặc định = 1)
+- Tổng coins bạn sẽ nhận hàng tuần
+- Lịch trả lương tiếp theo
+
+**Lưu ý:**
+- Tất cả roles của bạn đều được tính (không chỉ eligible roles)
+- Roles không có cấu hình hệ số sẽ dùng mặc định = 1
+- Tổng coins tối đa là 100 (nếu vượt sẽ bị cap)
 
 ---
 

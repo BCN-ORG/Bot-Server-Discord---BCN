@@ -116,34 +116,39 @@ export async function generatePayrollPreview(client) {
     for (const member of uniqueMembers.values()) {
       const userId = member.user.id;
       
-      // Lay cac role duoc tra luong ma user co
+      // Tinh luong dua tren TAT CA roles (tru @everyone va bot roles)
+      let total = 0;
       const memberRoles = [];
-      for (const roleId of eligibleRoleIds) {
-        if (member.roles.cache.has(roleId)) {
-          const role = guild.roles.cache.get(roleId);
-          if (role) {
-            const coefficient = coefficientMap.get(roleId) ?? 1;
-            memberRoles.push({
-              roleId: role.id,
-              roleName: role.name,
-              coefficient
-            });
-          }
-        }
+      
+      for (const [roleId, role] of member.roles.cache) {
+        // Bo qua @everyone role
+        if (role.id === member.guild.id) continue;
+        
+        // Bo qua bot roles
+        if (role.managed) continue;
+        
+        const coefficient = coefficientMap.get(roleId) ?? 1;
+        total += coefficient;
+        
+        memberRoles.push({
+          roleId: role.id,
+          roleName: role.name,
+          coefficient
+        });
       }
       
       if (memberRoles.length === 0) {
         continue;
       }
       
-      // Tinh tong coefficient
-      let total = 0;
-      for (const role of memberRoles) {
-        total += role.coefficient;
-      }
-      
       // Cap at 100
       const amount = Math.min(total, 100);
+      
+      // Log chi tiet tung role
+      const roleBreakdown = memberRoles.map(r => `${r.roleName}(${r.coefficient})`).join(' + ');
+      console.log(`[Preview] ${member.user.tag}: ${memberRoles.length} roles counted`);
+      console.log(`[Preview]   Formula: ${roleBreakdown} = ${total} coins${total > 100 ? ' (capped to 100)' : ''}`);
+      console.log(`[Preview]   Final amount: ${amount} coins`);
       
       breakdown.push({
         userId,
