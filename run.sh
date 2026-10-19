@@ -4,6 +4,72 @@ set -e
 set -o pipefail
 
 # ==========================================
+# KIỂM TRA / CÀI HOMEBREW
+# ==========================================
+
+load_homebrew() {
+    local brew_path
+
+    for brew_path in \
+        /opt/homebrew/bin/brew \
+        /usr/local/bin/brew \
+        /home/linuxbrew/.linuxbrew/bin/brew
+    do
+        if [ -x "$brew_path" ]; then
+            eval "$("$brew_path" shellenv)"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+if ! command -v brew >/dev/null 2>&1; then
+    load_homebrew || true
+fi
+
+if ! command -v brew >/dev/null 2>&1; then
+    echo "⚠️ Chưa cài Homebrew"
+
+    if ! command -v curl >/dev/null 2>&1; then
+        echo "❌ Không tìm thấy curl để tải Homebrew"
+        exit 1
+    fi
+
+    echo "📦 Đang cài Homebrew..."
+    echo "👉 Có thể cần nhập mật khẩu máy và nhấn Enter."
+
+    BREW_INSTALLER=$(mktemp)
+
+    if ! curl -fsSL \
+        https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh \
+        -o "$BREW_INSTALLER"
+    then
+        rm -f "$BREW_INSTALLER"
+        echo "❌ Không tải được trình cài Homebrew"
+        exit 1
+    fi
+
+    if ! /bin/bash "$BREW_INSTALLER"; then
+        rm -f "$BREW_INSTALLER"
+        echo "❌ Cài Homebrew thất bại"
+        exit 1
+    fi
+
+    rm -f "$BREW_INSTALLER"
+
+    load_homebrew || true
+fi
+
+if ! command -v brew >/dev/null 2>&1; then
+    echo "❌ Không tìm thấy brew sau khi cài"
+    echo "👉 Làm theo phần Next steps của Homebrew rồi chạy lại."
+    exit 1
+fi
+
+echo "✅ Homebrew OK"
+
+# ==========================================
 # KIỂM TRA / CÀI CLOUDFLARED
 # ==========================================
 
@@ -11,14 +77,6 @@ echo ""
 echo "🔎 Kiểm tra cloudflared..."
 
 if ! command -v cloudflared >/dev/null 2>&1; then
-    echo "⚠️ Chưa cài cloudflared"
-
-    if ! command -v brew >/dev/null 2>&1; then
-        echo "❌ Không tìm thấy Homebrew"
-        echo "👉 Cài Homebrew tại https://brew.sh rồi chạy lại script."
-        exit 1
-    fi
-
     echo "📦 Đang cài cloudflared..."
     brew install cloudflared
 fi
@@ -32,6 +90,13 @@ echo "✅ $(cloudflared --version)"
 for dependency in node npm nc; do
     if ! command -v "$dependency" >/dev/null 2>&1; then
         echo "❌ Không tìm thấy $dependency"
+
+        if [ "$dependency" = "node" ] || [ "$dependency" = "npm" ]; then
+            echo "👉 Cài Node.js bằng: brew install node"
+        else
+            echo "👉 Cài netcat bằng: brew install netcat"
+        fi
+
         exit 1
     fi
 done
@@ -42,6 +107,7 @@ done
 
 if [ ! -f ".env" ]; then
     echo "❌ Không tìm thấy file .env"
+    echo "👉 Chạy script tại thư mục gốc dự án."
     exit 1
 fi
 
@@ -84,13 +150,18 @@ if [ -z "${CF_HOSTNAME:-}" ]; then
 fi
 
 if ! [[ "$CF_HOSTNAME" =~ ^[a-zA-Z0-9.-]+$ ]]; then
-    echo "❌ CF_HOSTNAME phải là hostname, không kèm https:// hoặc đường dẫn"
+    echo "❌ CF_HOSTNAME không được kèm https:// hoặc đường dẫn"
     exit 1
 fi
 
 if [ ! -f "src/index.js" ]; then
     echo "❌ Không tìm thấy src/index.js"
-    echo "👉 Hãy chạy script tại thư mục gốc của dự án."
+    echo "👉 Chạy script tại thư mục gốc dự án."
+    exit 1
+fi
+
+if [ ! -f "package.json" ]; then
+    echo "❌ Không tìm thấy package.json"
     exit 1
 fi
 
@@ -115,7 +186,7 @@ mkdir -p "$CF_DIR"
 
 if [ ! -f "$CERT_FILE" ]; then
     echo "🔐 Chưa đăng nhập Cloudflare"
-    echo "🌐 Hãy mở liên kết được hiển thị để đăng nhập..."
+    echo "🌐 Mở liên kết được hiển thị để đăng nhập..."
 
     cloudflared tunnel login
 
@@ -134,7 +205,10 @@ fi
 find_tunnel_id() {
     local tunnel_list
 
-    tunnel_list=$(cloudflared tunnel list)
+    if ! tunnel_list=$(cloudflared tunnel list); then
+        echo "❌ Không lấy được danh sách tunnel" >&2
+        return 1
+    fi
 
     awk -v name="$CF_TUNNEL_NAME" \
         '$2 == name {print $1; exit}' <<< "$tunnel_list"
@@ -150,8 +224,7 @@ TUNNEL_ID=$(find_tunnel_id)
 # ==========================================
 
 if [ -z "$TUNNEL_ID" ]; then
-    echo "➕ Tunnel chưa tồn tại"
-    echo "Đang tạo tunnel..."
+    echo "➕ Đang tạo tunnel..."
 
     cloudflared tunnel create "$CF_TUNNEL_NAME"
 
@@ -176,7 +249,7 @@ CREDENTIALS_FILE="$CF_DIR/$TUNNEL_ID.json"
 if [ ! -f "$CREDENTIALS_FILE" ]; then
     echo "❌ Không tìm thấy credentials:"
     echo "$CREDENTIALS_FILE"
-    echo "👉 Nếu tunnel được tạo trên máy khác, hãy chép file credentials về máy này."
+    echo "👉 Nếu tạo tunnel trên máy khác, chép file credentials về máy này."
     exit 1
 fi
 
@@ -189,9 +262,17 @@ CONFIG_FILE="$CF_DIR/$CF_TUNNEL_NAME.yml"
 echo ""
 echo "📝 Tạo/update tunnel config..."
 
+# JSON string cũng là YAML string hợp lệ.
+# Dùng Node để escape đường dẫn chính xác.
+CREDENTIALS_YAML=$(
+    node -e \
+        'process.stdout.write(JSON.stringify(process.argv[1]))' \
+        "$CREDENTIALS_FILE"
+)
+
 cat > "$CONFIG_FILE" <<CONFIGEOF
 tunnel: "$TUNNEL_ID"
-credentials-file: "$CREDENTIALS_FILE"
+credentials-file: $CREDENTIALS_YAML
 
 ingress:
   - hostname: "$CF_HOSTNAME"
@@ -251,11 +332,17 @@ cleanup() {
 
     if [ -n "$TUNNEL_PID" ]; then
         kill "$TUNNEL_PID" 2>/dev/null || true
-        wait "$TUNNEL_PID" 2>/dev/null || true
     fi
 
     if [ -n "$SERVER_PID" ]; then
         kill "$SERVER_PID" 2>/dev/null || true
+    fi
+
+    if [ -n "$TUNNEL_PID" ]; then
+        wait "$TUNNEL_PID" 2>/dev/null || true
+    fi
+
+    if [ -n "$SERVER_PID" ]; then
         wait "$SERVER_PID" 2>/dev/null || true
     fi
 
@@ -304,7 +391,7 @@ while ! nc -z 127.0.0.1 "$PORT" >/dev/null 2>&1; do
 done
 
 echo ""
-echo "✅ Node.js server ready"
+echo "✅ Node.js server đã mở port"
 echo "🏠 http://localhost:$PORT"
 
 # ==========================================
