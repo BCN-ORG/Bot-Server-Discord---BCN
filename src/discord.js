@@ -18,7 +18,10 @@ export async function registerCommands(token, clientId, guildId) {
     payrollFeature.salarySchedule.data.toJSON(),
     payrollFeature.salaryPayoutNow.data.toJSON(),
     payrollFeature.salaryNotificationSchedule.data.toJSON(),
-    payrollFeature.salaryNotificationRoles.data.toJSON()
+    payrollFeature.salaryNotificationRoles.data.toJSON(),
+    payrollFeature.salaryDebts.data.toJSON(),
+    payrollFeature.salaryDebtDetail.data.toJSON(),
+    payrollFeature.salaryPayDebt.data.toJSON()
   ];
 
   const rest = new REST({ version: '10' }).setToken(token);
@@ -82,6 +85,21 @@ export function setupInteractionHandlers(client) {
       // Xu ly lenh /salary-notification-roles
       if (interaction.isChatInputCommand() && interaction.commandName === 'salary-notification-roles') {
         await payrollFeature.salaryNotificationRoles.execute(interaction);
+      }
+
+      // Xu ly lenh /salary-debts
+      if (interaction.isChatInputCommand() && interaction.commandName === 'salary-debts') {
+        await payrollFeature.salaryDebts.execute(interaction);
+      }
+
+      // Xu ly lenh /salary-debt-detail
+      if (interaction.isChatInputCommand() && interaction.commandName === 'salary-debt-detail') {
+        await payrollFeature.salaryDebtDetail.execute(interaction);
+      }
+
+      // Xu ly lenh /salary-pay-debt
+      if (interaction.isChatInputCommand() && interaction.commandName === 'salary-pay-debt') {
+        await payrollFeature.salaryPayDebt.execute(interaction);
       }
 
       // Xu ly nut bam mthêmo modal

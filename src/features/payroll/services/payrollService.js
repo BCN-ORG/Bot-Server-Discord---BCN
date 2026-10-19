@@ -2,9 +2,11 @@ import {
   getAllEligibleRoles,
   getAllCoefficients,
   getHistoryByPeriod,
-  savePayrollHistory
+  savePayrollHistory,
+  createDebt
 } from '../../../database/payroll.js';
-import { transferPayment } from './apiClient.js';
+import { transferPayment, getBalance } from './apiClient.js';
+import { format } from 'date-fns';
 
 function getCurrentPayrollPeriod(date = new Date()) {
   const parts = new Intl.DateTimeFormat('en', {
@@ -167,7 +169,68 @@ export async function processWeeklyPayroll(client) {
 
     console.log(`[Payroll] ${alreadyPaidUsers.size} member(s) already paid for ${period}`);
 
-    // 5. Xu ly tung member
+    // 5. Pre-calculate total coins needed across all eligible members
+    let totalNeeded = 0;
+    const memberCalculations = [];
+
+    for (const [memberId, member] of uniqueMembers) {
+      if (alreadyPaidUsers.has(memberId)) continue;
+      const userEligibleRoles = getUserEligibleRoles(member, eligibleRoleIds);
+      if (userEligibleRoles.length === 0) continue;
+      const salaryInfo = calculateUserSalary(userEligibleRoles, coefficients);
+      if (salaryInfo.amount === 0) continue;
+      totalNeeded += salaryInfo.amount;
+      memberCalculations.push({ memberId, member, userEligibleRoles, salaryInfo });
+    }
+
+    // Check wallet balance BEFORE paying anyone
+    const balanceData = await getBalance();
+    const currentBalance = balanceData.balance ?? balanceData.data?.balance ?? 0;
+
+    if (currentBalance < totalNeeded && memberCalculations.length > 0) {
+      const now = new Date();
+      const deficit = totalNeeded - currentBalance;
+      const debtId = format(now, 'ddMMyyyyHHmm');
+
+      const unpaidMembers = memberCalculations.map(calc => ({
+        userId: calc.memberId,
+        username: calc.member.user.username,
+        amount: calc.salaryInfo.amount,
+        eligibleRoles: calc.salaryInfo.roleDetails,
+        paidWithRole: calc.userEligibleRoles[0]
+      }));
+
+      await createDebt({
+        debtId,
+        payrollDate: now,
+        totalCoinsNeeded: totalNeeded,
+        walletBalance: currentBalance,
+        deficit,
+        memberCount: unpaidMembers.length,
+        unpaidMembers,
+        status: 'unpaid',
+        paidAt: null
+      });
+
+      console.log(`[Payroll] Insufficient balance (${currentBalance} < ${totalNeeded}) — created debt ${debtId}`);
+
+      return {
+        total: unpaidMembers.length,
+        success: 0,
+        failed: 0,
+        skipped: 0,
+        alreadyPaid: alreadyPaidUsers.size,
+        unprocessed: 0,
+        debtCreated: true,
+        debtId,
+        totalNeeded,
+        walletBalance: currentBalance,
+        deficit,
+        duration: Date.now() - startTime
+      };
+    }
+
+    // 6. Xu ly tung member
     let successCount = 0;
     let failedCount = 0;
     let skippedCount = 0;

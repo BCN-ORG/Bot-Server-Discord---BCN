@@ -27,6 +27,27 @@ export async function execute(interaction, client) {
     const duration = Date.now() - startTime;
     const durationSeconds = (duration / 1000).toFixed(1);
 
+    // Neu tao no, hien thi thong bao khac
+    if (result.debtCreated) {
+      const embed = new EmbedBuilder()
+        .setColor('#ff9900')
+        .setTitle('⚠️ Không đủ số dư — Đã ghi nợ')
+        .setDescription('Không đủ số dư trong ví để trả lương. Một bản ghi nợ đã được tạo.')
+        .addFields(
+          { name: 'ID Nợ', value: `${result.debtId}`, inline: true },
+          { name: 'Số người chịu ảnh hưởng', value: `${result.total}`, inline: true },
+          { name: 'Tổng coins cần trả', value: `${result.totalNeeded}`, inline: true },
+          { name: 'Số dư ví hiện tại', value: `${result.walletBalance}`, inline: true },
+          { name: 'Số dư thiếu', value: `${result.deficit}`, inline: true },
+          { name: 'Thời gian xử lý', value: `${durationSeconds}s`, inline: true }
+        )
+        .setFooter({ text: `Thực hiện bởi ${interaction.user.tag}` })
+        .setTimestamp();
+
+      await interaction.editReply({ embeds: [embed] });
+      return;
+    }
+
     // Tao embed ket qua
     const embed = new EmbedBuilder()
       .setTitle('Ket qua tra luong')
