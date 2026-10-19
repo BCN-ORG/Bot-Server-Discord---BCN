@@ -259,11 +259,13 @@ export async function processWeeklyPayroll(client) {
         // Xac dinh status
         if (transferResult.httpStatus === 200) {
           if (transferResult.data?.status === 'SUCCESS') {
+            // Tat ca truong hop SUCCESS deu duoc ghi nhan voi status='SUCCESS'
             historyRecord.status = 'SUCCESS';
             historyRecord.duplicate = transferResult.data?.duplicate === true;
             
             if (historyRecord.duplicate) {
-              console.log(`[Payroll] ${member.user.tag}: Already paid this period (duplicate)`);
+              // duplicate:true nghia la da tra roi, nhung van la success
+              console.log(`[Payroll] ${member.user.tag}: Already paid this period (duplicate=true, counted as success/skip)`);
               alreadyPaidCount++;
               alreadyPaidUsers.add(userId);
             } else {
