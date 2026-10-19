@@ -1,0 +1,12 @@
+{
+  "task_id": "task-payroll-enhance",
+  "task_description": "Enhance payroll system with notification scheduling, debt tracking, and debt-management commands. Add minute field to schedules. Fix lazy env loading in apiClient.js.",
+  "status": "pending",
+  "feature_order": [
+    "FEAT-001",
+    "FEAT-002",
+    "FEAT-003",
+    "FEAT-004"
+  ],
+  "blocked_reason": null
+}

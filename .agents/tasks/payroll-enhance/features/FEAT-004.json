@@ -1,0 +1,26 @@
+{
+  "id": "FEAT-004",
+  "type": "feat",
+  "description": "Implement debt management commands: list debts, view debt detail, and pay off debts. Commands allow admin to view unpaid debts and trigger manual payment when wallet is refilled. Independent of notification system (FEAT-002).",
+  "status": "pending",
+  "steps": [
+    "1. Create src/features/payroll/commands/salaryDebts.js: SlashCommandBuilder with name 'salary-debts', description 'Xem danh sach no luong', admin permission, subcommand 'list'. Execute: call getAllDebts({status: 'unpaid'}) from payroll.js, build embed listing each debt with debtId, payrollDate (formatted as DD/MM/YYYY HH:mm), deficit, unpaidMembers.length, status. If no debts, show 'Khong co no luong'. Reply with embed.",
+    "2. Create src/features/payroll/commands/salaryDebtDetail.js: SlashCommandBuilder with name 'salary-debt-detail', description 'Xem chi tiet no luong', admin permission, option: debtId (string, required). Execute: call getDebtById(debtId) from payroll.js, if not found reply with error embed, else build detailed embed showing: debtId, payrollDate, totalCoinsNeeded, walletBalance, deficit, status, paidAt (if paid), and a list of unpaidMembers (userId mention, amount, roles). Reply with embed.",
+    "3. Create src/features/payroll/commands/salaryPayDebt.js: SlashCommandBuilder with name 'salary-pay-debt', description 'Tra no luong', admin permission, option: debtId (string, required). Execute: (a) defer reply, (b) call getDebtById(debtId), if not found or status != 'unpaid' reply error, (c) call getBalance() to check current wallet balance, (d) recalculate totalCoinsNeeded from unpaidMembers array, (e) if balance < totalCoinsNeeded reply with error embed showing current balance and amount needed, (f) if balance >= totalCoinsNeeded: iterate through unpaidMembers, call transferPayment() for each (with 1 second delay between calls), track success/failed counts, (g) if all successful: call updateDebtStatus(debtId, 'paid', new Date()), reply with success embed showing paid count, (h) if any failed: reply with partial success embed showing counts and advise to check history. Include detailed progress updates in the reply.",
+    "4. Add getAllDebts(filters) function to src/database/payroll.js: query salary_debts collection with optional filters {status: 'unpaid'}, sort by createdAt descending, return array. Add updateDebtStatus(debtId, status, paidAt) function to update a debt record's status and paidAt fields."
+  ],
+  "acceptance_criteria": [
+    "/salary-debts list shows all unpaid debt records with summary info",
+    "/salary-debt-detail <debtId> displays full debt details including member list and amounts",
+    "/salary-pay-debt <debtId> checks balance, processes payments for all unpaid members, and updates debt status to 'paid' when successful",
+    "/salary-pay-debt shows appropriate error when balance is still insufficient"
+  ],
+  "verification": [
+    "Run: node --check src/features/payroll/commands/salaryDebts.js src/features/payroll/commands/salaryDebtDetail.js src/features/payroll/commands/salaryPayDebt.js src/database/payroll.js",
+    "Create a test debt by running payroll with insufficient balance, then run /salary-debts list and verify the debt appears",
+    "Run /salary-debt-detail with the debt ID and verify all member details are shown",
+    "Increase wallet balance (or use test environment), run /salary-pay-debt with the debt ID, verify payments are processed and debt status updates to 'paid' in MongoDB"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

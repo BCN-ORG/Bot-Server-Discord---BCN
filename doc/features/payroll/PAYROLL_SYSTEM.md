@@ -6,9 +6,11 @@ Hệ thống trả lương tự động cho Discord Bot cho phép tự động t
 
 ### Đặc điểm chính
 
-- **Tự động**: Chạy theo lịch hàng tuần (mặc định: Thứ Hai 00:00)
+- **Tự động**: Chạy theo lịch hàng tuần với minute precision (mặc định: Thứ Hai 00:00)
 - **Linh hoạt**: Quản trị viên có thể cấu hình role, hệ số lương và lịch trình
 - **An toàn**: Chống trả lương trùng lặp, retry tự động, logging đầy đủ
+- **Thông báo trước**: Hệ thống notification tự động báo trước khi trả lương
+- **Quản lý nợ**: Tự động ghi nợ khi thiếu coins, có lệnh trả nợ sau
 - **Kiểm tra**: Lệnh thủ công để test và trả lương ngoài lịch
 
 ---
@@ -593,3 +595,383 @@ npm start
 ---
 
 **Liên hệ:** Quản trị viên bot để được hỗ trợ
+
+
+---
+
+## 🔔 Hệ Thống Thông Báo (Notification System)
+
+### Tổng quan
+
+Hệ thống notification tự động gửi thông báo trước khi trả lương, giúp admin biết trước:
+- Tổng coins cần trả
+- Số dư hiện tại
+- Liệu có đủ tiền không
+
+### Cách hoạt động
+
+```
+1. Scheduler chạy theo lịch đã cấu hình
+2. Tính toán tổng coins cần trả (giống logic trả lương)
+3. Gọi API GET /balance để lấy số dư
+4. Gửi embed notification đến roles được chỉ định
+```
+
+### Commands
+
+#### 1. Set lịch notification
+```
+/salary-notification-schedule <day> <hour> <minute> <roles...>
+
+Ví dụ:
+/salary-notification-schedule sunday 20 00 @Admin @Manager
+→ Mỗi Chủ Nhật 20:00, gửi notification cho Admin và Manager
+```
+
+#### 2. Quản lý roles nhận notification
+```
+/salary-notification-roles add @Role     # Thêm role
+/salary-notification-roles remove @Role  # Xóa role
+/salary-notification-roles list          # Xem danh sách
+```
+
+### Notification Embed Format
+
+```
+📊 BÁO CÁO TRẢ LƯƠNG SẮP TỚI
+
+📅 Thời gian trả: Thứ Hai, 21/10/2026 lúc 00:00
+
+👥 Số người: 45 members
+💰 Tổng coins cần trả: 1,250 coins
+
+🏦 Số dư hiện tại: 1,500 coins
+✅ Trạng thái: Đủ để trả lương
+
+---
+
+⏰ Lưu ý: Bot sẽ tự động trả lương vào thời gian đã định
+```
+
+Hoặc nếu thiếu:
+
+```
+📊 BÁO CÁO TRẢ LƯƠNG SẮP TỚI
+
+📅 Thời gian trả: Thứ Hai, 21/10/2026 lúc 00:00
+
+👥 Số người: 45 members
+💰 Tổng coins cần trả: 1,250 coins
+
+🏦 Số dư hiện tại: 800 coins
+⚠️ THIẾU: 450 coins
+
+---
+
+❌ CẢNH BÁO: Không đủ coins để trả lương!
+📝 Hệ thống sẽ tự động ghi nợ nếu không nạp thêm.
+```
+
+### Database Schema
+
+**Collection: `salary_notification_config`**
+```javascript
+{
+  _id: "notification_schedule",
+  dayOfWeek: 0,              // 0=CN, 1=T2, ..., 6=T7
+  hour: 20,
+  minute: 0,
+  timezone: "Asia/Ho_Chi_Minh",
+  notificationRoles: [       // Roles nhận notification
+    "1234567890",
+    "9876543210"
+  ],
+  updatedAt: ISODate()
+}
+```
+
+---
+
+## 💳 Hệ Thống Ghi Nợ (Debt Tracking System)
+
+### Tổng quan
+
+Khi số dư ví bot không đủ để trả lương cho tất cả, hệ thống sẽ:
+- **Không trả** cho ai cả
+- **Ghi nợ** toàn bộ vào database
+- Admin có thể **trả nợ sau** khi đã nạp tiền
+
+### Khi nào ghi nợ?
+
+```
+1. Scheduler tự động chạy trả lương
+2. Hoặc admin dùng /salary-payout-now
+
+→ Tính tổng coins cần trả
+→ Gọi GET /balance
+→ Nếu balance < total needed:
+   ├─ Tạo debt record
+   ├─ Lưu danh sách tất cả người cần trả
+   └─ KHÔNG gọi API transfer
+```
+
+### Debt ID Format
+
+DebtId được tạo từ timestamp:
+```
+Format: DDMMYYYYHHmm (14 digits)
+
+Ví dụ:
+- Trả lương lúc: 19/10/2026 08:31
+- DebtId: 191020260831
+```
+
+### Database Schema
+
+**Collection: `salary_debts`**
+```javascript
+{
+  debtId: "191020260831",
+  createdAt: ISODate("2026-10-19T08:31:00Z"),
+  payrollDate: ISODate("2026-10-19T08:31:00Z"),
+  
+  totalCoinsNeeded: 1250,    // Tổng coins cần trả
+  walletBalance: 800,        // Số dư lúc đó
+  deficit: 450,              // Thiếu bao nhiêu
+  
+  memberCount: 45,           // Số người không được trả
+  
+  unpaidMembers: [           // Danh sách chi tiết
+    {
+      userId: "123456789",
+      username: "Nguyen Van A",
+      amount: 25,
+      eligibleRoles: [
+        { roleId: "111", roleName: "Member", coefficient: 1 },
+        { roleId: "222", roleName: "Active", coefficient: 1 }
+      ],
+      paidWithRole: {
+        roleId: "111",
+        roleName: "Member"
+      }
+    }
+    // ... 44 members khác
+  ],
+  
+  status: "unpaid",          // "unpaid" | "paid"
+  paidAt: null,              // Thời gian trả nợ (nếu có)
+  
+  updatedAt: ISODate("2026-10-19T08:31:00Z")
+}
+```
+
+### Commands Quản Lý Nợ
+
+#### 1. Xem danh sách nợ
+```
+/salary-debts list
+
+→ Hiện embed với tất cả khoản nợ:
+
+📋 DANH SÁCH NỢ LƯƠNG
+
+🔴 Chưa trả (2 khoản):
+  • 191020260831 - 19/10/2026 08:31
+    Thiếu: 450 coins | 45 người
+    
+  • 121020260800 - 12/10/2026 08:00
+    Thiếu: 230 coins | 23 người
+
+✅ Đã trả (1 khoản):
+  • 051020260800 - 05/10/2026 08:00
+    Đã trả lúc: 06/10/2026 14:23
+
+---
+Dùng /salary-debt-detail <debtId> để xem chi tiết
+```
+
+#### 2. Xem chi tiết một khoản nợ
+```
+/salary-debt-detail 191020260831
+
+→ Hiện embed chi tiết:
+
+📄 CHI TIẾT NỢ LƯƠNG
+ID: 191020260831
+
+📅 Ngày: 19/10/2026 08:31
+💰 Tổng cần trả: 1,250 coins
+🏦 Số dư lúc đó: 800 coins
+⚠️ Thiếu: 450 coins
+
+👥 Danh sách nợ (45 người):
+  1. Nguyen Van A - 25 coins
+  2. Tran Thi B - 30 coins
+  3. Le Van C - 28 coins
+  ... (xem đầy đủ trong DB)
+
+🔴 Trạng thái: Chưa trả
+
+---
+Dùng /salary-pay-debt 191020260831 để trả nợ
+```
+
+#### 3. Trả nợ
+```
+/salary-pay-debt 191020260831
+
+→ Bot sẽ:
+  1. Load debt record
+  2. Check balance hiện tại
+  3. Nếu đủ:
+     ├─ Trả lần lượt cho từng người
+     ├─ Update debt status = "paid"
+     ├─ Set paidAt timestamp
+     └─ Reply với kết quả
+  4. Nếu vẫn thiếu:
+     └─ Reply lỗi với số dư hiện tại
+
+Reply khi thành công:
+✅ ĐÃ TRẢ NỢ THÀNH CÔNG
+
+Debt ID: 191020260831
+Đã trả cho: 45/45 người
+Tổng: 1,250 coins
+
+Số dư còn lại: 750 coins
+```
+
+### Luồng xử lý nợ
+
+```
+┌─────────────────────────────────────────────┐
+│  Payroll Scheduler / Manual Payout          │
+└────────────────┬────────────────────────────┘
+                 │
+                 ▼
+        ┌────────────────┐
+        │ Calculate Total│
+        │  Coins Needed  │
+        └────────┬───────┘
+                 │
+                 ▼
+         ┌──────────────┐
+         │ Check Balance│
+         └──────┬───────┘
+                 │
+        ┌────────┴────────┐
+        │                 │
+    Enough?           Not enough?
+        │                 │
+        ▼                 ▼
+┌───────────────┐   ┌──────────────┐
+│ Process       │   │ Create Debt  │
+│ Payments      │   │   Record     │
+│ Normally      │   │              │
+└───────────────┘   └──────┬───────┘
+                           │
+                           ▼
+                  ┌─────────────────┐
+                  │ Skip all        │
+                  │   payments      │
+                  └─────────────────┘
+                  
+Later...
+                  
+┌─────────────────────────┐
+│ /salary-pay-debt <id>   │
+└───────────┬─────────────┘
+            │
+            ▼
+    ┌──────────────┐
+    │ Check Balance│
+    └──────┬───────┘
+            │
+    ┌───────┴────────┐
+    │                │
+Enough?          Still not?
+    │                │
+    ▼                ▼
+┌──────────┐   ┌─────────┐
+│ Pay All  │   │  Error  │
+│ Members  │   │ Message │
+└────┬─────┘   └─────────┘
+     │
+     ▼
+┌──────────────┐
+│ Mark as Paid │
+└──────────────┘
+```
+
+---
+
+## 🎯 Commands Tổng Hợp
+
+### Admin Commands
+
+| Command | Mô tả | Ví dụ |
+|---------|-------|-------|
+| `/salary-coefficient <role> <số>` | Set hệ số lương cho role | `/salary-coefficient @Member 2` |
+| `/salary-roles add <role>` | Thêm role được trả lương | `/salary-roles add @Active` |
+| `/salary-roles remove <role>` | Xóa role khỏi danh sách | `/salary-roles remove @Inactive` |
+| `/salary-roles list` | Xem danh sách roles | `/salary-roles list` |
+| `/salary-schedule <day> <hour> <minute>` | Set lịch trả lương | `/salary-schedule monday 8 30` |
+| `/salary-payout-now` | Trả lương ngay lập tức | `/salary-payout-now` |
+| `/salary-notification-schedule <day> <hour> <minute> <roles...>` | Set lịch thông báo | `/salary-notification-schedule sunday 20 0 @Admin` |
+| `/salary-notification-roles add <role>` | Thêm role nhận thông báo | `/salary-notification-roles add @Manager` |
+| `/salary-notification-roles remove <role>` | Xóa role khỏi notification | `/salary-notification-roles remove @Manager` |
+| `/salary-notification-roles list` | Xem roles nhận thông báo | `/salary-notification-roles list` |
+| `/salary-debts list` | Xem danh sách nợ | `/salary-debts list` |
+| `/salary-debt-detail <debtId>` | Chi tiết khoản nợ | `/salary-debt-detail 191020260831` |
+| `/salary-pay-debt <debtId>` | Trả nợ cho một đợt | `/salary-pay-debt 191020260831` |
+
+**Tất cả commands đều yêu cầu Administrator permission**
+
+---
+
+## 📊 MongoDB Collections Tổng Hợp
+
+| Collection | Mục đích | Key Fields |
+|------------|----------|------------|
+| `salary_coefficients` | Hệ số lương theo role | `roleId`, `coefficient` |
+| `salary_eligible_roles` | Roles được trả lương | `roleId` |
+| `salary_config` | Lịch trả lương | `dayOfWeek`, `hour`, `minute` |
+| `salary_notification_config` | Lịch thông báo | `dayOfWeek`, `hour`, `minute`, `notificationRoles` |
+| `salary_history` | Lịch sử trả lương | `userId`, `amount`, `status`, `paidAt` |
+| `salary_debts` | Nợ lương chưa trả | `debtId`, `unpaidMembers`, `status` |
+
+---
+
+## 🔄 Luồng hoạt động đầy đủ
+
+### Timeline Ví Dụ
+
+```
+Chủ Nhật 20:00 (Notification)
+├─► Notification scheduler kích hoạt
+├─► Tính tổng coins cần: 1,250
+├─► Check balance: 800 coins
+├─► Gửi embed cảnh báo thiếu 450 coins
+└─► Mention @Admin @Manager
+
+Thứ Hai 08:30 (Payroll)
+├─► Payroll scheduler kích hoạt
+├─► Tính tổng coins cần: 1,250
+├─► Check balance: 800 coins (vẫn thiếu)
+├─► Tạo debt record: 211020260830
+├─► Lưu 45 unpaid members
+└─► Skip payments, ghi log
+
+Admin nạp tiền...
+
+Thứ Ba 14:00 (Manual Debt Payment)
+├─► Admin: /salary-pay-debt 211020260830
+├─► Check balance: 2,000 coins (đủ rồi)
+├─► Trả lần lượt 45 members
+├─► Mark debt as paid
+└─► Reply success với summary
+```
+
+---
+
+*Cập nhật lần cuối: 2026-10-18*

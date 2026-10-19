@@ -16,7 +16,9 @@ export async function registerCommands(token, clientId, guildId) {
     payrollFeature.salaryCoefficient.data.toJSON(),
     payrollFeature.salaryRoles.data.toJSON(),
     payrollFeature.salarySchedule.data.toJSON(),
-    payrollFeature.salaryPayoutNow.data.toJSON()
+    payrollFeature.salaryPayoutNow.data.toJSON(),
+    payrollFeature.salaryNotificationSchedule.data.toJSON(),
+    payrollFeature.salaryNotificationRoles.data.toJSON()
   ];
 
   const rest = new REST({ version: '10' }).setToken(token);
@@ -70,6 +72,16 @@ export function setupInteractionHandlers(client) {
       // Xu ly lenh /salary-payout-now
       if (interaction.isChatInputCommand() && interaction.commandName === 'salary-payout-now') {
         await payrollFeature.salaryPayoutNow.execute(interaction, client);
+      }
+
+      // Xu ly lenh /salary-notification-schedule
+      if (interaction.isChatInputCommand() && interaction.commandName === 'salary-notification-schedule') {
+        await payrollFeature.salaryNotificationSchedule.execute(interaction, client);
+      }
+
+      // Xu ly lenh /salary-notification-roles
+      if (interaction.isChatInputCommand() && interaction.commandName === 'salary-notification-roles') {
+        await payrollFeature.salaryNotificationRoles.execute(interaction);
       }
 
       // Xu ly nut bam mthêmo modal

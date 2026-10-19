@@ -1,0 +1,24 @@
+{
+  "id": "FEAT-003",
+  "type": "feat",
+  "description": "Implement debt tracking in payroll processing: create debt records when wallet balance is insufficient, store unpaid member details, and skip payment API calls for that payroll run. Modify processWeeklyPayroll to check balance before processing.",
+  "status": "pending",
+  "steps": [
+    "1. Modify src/features/payroll/services/payrollService.js: in processWeeklyPayroll(), after deduplicating members and before the processing loop, add a pre-check phase: (a) calculate total coins needed for all members (iterate through uniqueMembers, calculate salary for each using calculateUserSalary(), sum the amounts), (b) call getBalance() from apiClient.js to get wallet balance, (c) if balance < totalCoinsNeeded: generate debtId as format(now, 'DDMMYYYYHHmm') in Asia/Ho_Chi_Minh timezone, build debt record with schema {debtId, createdAt, payrollDate, totalCoinsNeeded, walletBalance, deficit: totalCoinsNeeded - walletBalance, unpaidMembers: [{userId, amount, eligibleRoles, paidWithRole}], status: 'unpaid', paidAt: null}, call createDebt() from payroll.js to save record, log warning with debt info, return early with {total, success: 0, failed: 0, skipped: 0, alreadyPaid: 0, unprocessed: total, debtCreated: true, debtId}. (d) if balance >= totalCoinsNeeded: proceed with existing member-by-member payment loop as before (no changes to the loop logic).",
+    "2. Add helper function formatDebtId(date) to payrollService.js: use Intl.DateTimeFormat to format date in Asia/Ho_Chi_Minh timezone as DDMMYYYYHHmm string. Example: new Date('2026-10-19T08:31:00Z') -> '191020260831' (adjust for timezone).",
+    "3. Update the return object from processWeeklyPayroll() to include debtCreated (boolean) and debtId (string or null) fields so callers know when a debt was created instead of payments being processed."
+  ],
+  "acceptance_criteria": [
+    "When wallet balance < total coins needed, processWeeklyPayroll creates a debt record and returns early without calling payment API",
+    "Debt record includes debtId in DDMMYYYYHHmm format, all unpaid member details, totalCoinsNeeded, walletBalance, and deficit",
+    "When wallet balance >= total coins needed, payroll processing continues normally with no debt record created",
+    "Debt records are saved to salary_debts collection with status 'unpaid'"
+  ],
+  "verification": [
+    "Run: node --check src/features/payroll/services/payrollService.js",
+    "Manually test with insufficient balance: modify test scenario to have low balance, run /salary-payout-now, verify debt record is created in MongoDB salary_debts collection and no API payment calls are made",
+    "Manually test with sufficient balance: run /salary-payout-now with adequate balance, verify payments proceed normally and no debt record is created"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

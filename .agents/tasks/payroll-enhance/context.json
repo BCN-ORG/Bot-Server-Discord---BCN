@@ -1,0 +1,29 @@
+{
+  "project_type": "Node.js Discord bot with MongoDB + Payroll API integration",
+  "language": "JavaScript (ES modules)",
+  "build_system": "npm, no compilation step",
+  "test_framework": "None (manual testing)",
+  "build_command": "node --check on each modified file",
+  "test_command": "npm run dev (manual verification with commands)",
+  "verification_instructions": "1. Run node --check on all new/modified JS files to ensure syntax validity. 2. Start bot with npm run dev and verify modules load without throwing. 3. Test commands in Discord: /salary-notification-schedule, /salary-notification-roles, /salary-debts, /salary-debt-detail, /salary-pay-debt. 4. Verify schedulers initialize without error. 5. Verify notification preview calculation (check balance API call). 6. Test debt creation by simulating insufficient balance scenario.",
+  "snapshot_or_generated_files": null,
+  "environment_constraints": "Never read env vars at module top level; always read inside functions (lazy evaluation) to prevent import-time crashes when env is absent. The existing apiClient.js throws at import time (anti-pattern). Mirror the lazy pattern used in other working modules. Bot runs with GuildMembers intent for member fetching. Timezone: Asia/Ho_Chi_Minh.",
+  "contribution_requirements": "Follow existing code style: Vietnamese comments, EmbedBuilder for responses, admin commands require PermissionFlagsBits.Administrator, all roleId/userId are Discord snowflake strings, use node-cron for scheduling, MongoDB CRUD pattern from payroll.js, slash commands registered via discord.js, lazy env reading inside functions.",
+  "key_patterns": "1. Database CRUD: src/database/payroll.js - collection getters + async CRUD functions. 2. Scheduler pattern: src/features/payroll/scheduler.js - cron.schedule with config from DB, updateSchedule restarts job. 3. Command pattern: commands use SlashCommandBuilder, admin permission, embed responses, subcommands for list/add/remove. 4. Service pattern: payrollService.js - business logic, deduplication, coefficient calculation. 5. API client pattern: apiClient.js reads env at top (WRONG - needs fix), uses fetch with retry logic. 6. Index export: features/payroll/index.js exports all commands + scheduler for registration. 7. Registration: discord.js calls .toJSON() on commands, src/index.js calls init functions.",
+  "relevant_files": [
+    "src/database/payroll.js",
+    "src/features/payroll/scheduler.js",
+    "src/features/payroll/services/payrollService.js",
+    "src/features/payroll/services/apiClient.js",
+    "src/features/payroll/commands/salarySchedule.js",
+    "src/features/payroll/commands/salaryRoles.js",
+    "src/features/payroll/commands/salaryCoefficient.js",
+    "src/features/payroll/commands/salaryPayoutNow.js",
+    "src/features/payroll/index.js",
+    "src/discord.js",
+    "src/index.js",
+    "doc/api/PAYROLL_API.md",
+    "doc/features/payroll/PAYROLL_SYSTEM.md"
+  ],
+  "directory_structure": "src/database/ - MongoDB collections and CRUD; src/features/payroll/commands/ - slash commands; src/features/payroll/services/ - business logic and API client; src/features/payroll/ - scheduler.js, index.js; src/ - discord.js (command registration), index.js (bot init); doc/api/ - API specs; doc/features/payroll/ - system documentation"
+}

@@ -10,7 +10,7 @@ import { handleVoiceStateUpdate } from './events/voiceStateUpdate.js';
 import { handleMessageCreate } from './events/messageCreate.js';
 import { startViolationChecker } from './schedulers/violationChecker.js';
 import { connectMongoDB } from './database/mongodb.js';
-import { initPayrollScheduler } from './features/payroll/index.js';
+import { initPayrollScheduler, initNotificationScheduler } from './features/payroll/index.js';
 
 const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
 
@@ -51,6 +51,9 @@ client.once('ready', async () => {
   
   // Khoi dong payroll scheduler
   await initPayrollScheduler(client);
+  
+  // Khoi dong notification scheduler
+  await initNotificationScheduler(client);
   
   console.log('[INFO] Bot đang hoạt động!');
 });
