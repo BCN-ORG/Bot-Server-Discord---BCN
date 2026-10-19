@@ -9,11 +9,12 @@ let currentConfig = null;
  * Tao cron expression tu config
  * @param {number} dayOfWeek - 0=Sunday, 1=Monday, ..., 6=Saturday
  * @param {number} hour - 0-23
+ * @param {number} minute - 0-59
  */
-function createCronExpression(dayOfWeek, hour) {
+function createCronExpression(dayOfWeek, hour, minute) {
   // Cron format: 'minute hour dayOfMonth month dayOfWeek'
   // dayOfWeek: 0=Sunday trong cron
-  return `0 ${hour} * * ${dayOfWeek}`;
+  return `${minute} ${hour} * * ${dayOfWeek}`;
 }
 
 /**
@@ -27,11 +28,11 @@ export async function initPayrollScheduler(client) {
     // Lay config tu database
     currentConfig = await getSalaryConfig();
     
-    const cronExpression = createCronExpression(currentConfig.dayOfWeek, currentConfig.hour);
+    const cronExpression = createCronExpression(currentConfig.dayOfWeek, currentConfig.hour, currentConfig.minute);
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const dayName = dayNames[currentConfig.dayOfWeek];
     
-    console.log(`[Payroll] Schedule: ${dayName} at ${String(currentConfig.hour).padStart(2, '0')}:00 (${currentConfig.timezone})`);
+    console.log(`[Payroll] Schedule: ${dayName} at ${String(currentConfig.hour).padStart(2, '0')}:${String(currentConfig.minute).padStart(2, '0')} (${currentConfig.timezone})`);
     console.log(`[Payroll] Cron expression: ${cronExpression}`);
     
     // Kiem tra xem da co role nao duoc cau hinh chua
@@ -66,11 +67,12 @@ export async function initPayrollScheduler(client) {
  * Cap nhat schedule va restart cron job
  * @param {number} dayOfWeek 
  * @param {number} hour 
+ * @param {number} minute 
  * @param {Client} client 
  */
-export async function updateSchedule(dayOfWeek, hour, client) {
+export async function updateSchedule(dayOfWeek, hour, minute, client) {
   try {
-    console.log(`[Payroll] Updating schedule to day=${dayOfWeek}, hour=${hour}`);
+    console.log(`[Payroll] Updating schedule to day=${dayOfWeek}, hour=${hour}, minute=${minute}`);
     
     // Dung job cu
     if (currentJob) {
@@ -79,10 +81,10 @@ export async function updateSchedule(dayOfWeek, hour, client) {
     }
     
     // Cap nhat config
-    currentConfig = { dayOfWeek, hour, timezone: 'Asia/Ho_Chi_Minh' };
+    currentConfig = { dayOfWeek, hour, minute, timezone: 'Asia/Ho_Chi_Minh' };
     
     // Tao job moi
-    const cronExpression = createCronExpression(dayOfWeek, hour);
+    const cronExpression = createCronExpression(dayOfWeek, hour, minute);
     
     currentJob = cron.schedule(cronExpression, async () => {
       console.log('[SCHEDULER] Starting weekly payroll...');
@@ -98,7 +100,7 @@ export async function updateSchedule(dayOfWeek, hour, client) {
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const dayName = dayNames[dayOfWeek];
     
-    console.log(`[Payroll] Schedule updated: ${dayName} at ${String(hour).padStart(2, '0')}:00`);
+    console.log(`[Payroll] Schedule updated: ${dayName} at ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`);
     console.log(`[Payroll] New cron expression: ${cronExpression}`);
     
   } catch (error) {

@@ -3,24 +3,41 @@
  * Su dung native fetch (Node.js 18+) de goi API tra luong
  */
 
-const BASE_URL = process.env.PAYROLL_API_BASE_URL;
-const API_KEY = process.env.PAYROLL_API_KEY;
+// Cache config sau khi load lan dau
+let configCache = null;
 
-// Validate env vars at module load
-if (!BASE_URL) {
-  throw new Error('[Payroll API] PAYROLL_API_BASE_URL is required in .env');
-}
+/**
+ * Lay va validate config (lazy evaluation)
+ * Chi doc env vars khi function duoc goi, khong doc o module top-level
+ */
+function getConfig() {
+  if (configCache) {
+    return configCache;
+  }
 
-if (!API_KEY) {
-  throw new Error('[Payroll API] PAYROLL_API_KEY is required in .env');
+  const baseUrl = process.env.PAYROLL_API_BASE_URL;
+  const apiKey = process.env.PAYROLL_API_KEY;
+
+  if (!baseUrl) {
+    throw new Error('[Payroll API] PAYROLL_API_BASE_URL is required in .env');
+  }
+
+  if (!apiKey) {
+    throw new Error('[Payroll API] PAYROLL_API_KEY is required in .env');
+  }
+
+  configCache = { baseUrl, apiKey };
+  return configCache;
 }
 
 /**
  * Tao headers cho API request
  */
 function getHeaders() {
+  const config = getConfig();
+  
   return {
-    'x-api-key': API_KEY,
+    'x-api-key': config.apiKey,
     'Content-Type': 'application/json'
   };
 }
@@ -66,6 +83,8 @@ async function retryWithBackoff(fn, maxAttempts = 3) {
  * @param {string} description 
  */
 export async function transferPayment(userId, roleId, amount, description) {
+  const config = getConfig();
+
   if (typeof userId !== 'string' || !/^\d+$/.test(userId)) {
     throw new TypeError('[Payroll API] userId must be a Discord ID string containing digits only');
   }
@@ -85,7 +104,7 @@ export async function transferPayment(userId, roleId, amount, description) {
 
       console.log('[Payroll API] Sending transfer:', JSON.stringify(requestBody));
 
-      const response = await fetch(`${BASE_URL}/transfer`, {
+      const response = await fetch(`${config.baseUrl}/transfer`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify(requestBody)
@@ -145,8 +164,10 @@ export async function transferPayment(userId, roleId, amount, description) {
  * Lay so du vi bot
  */
 export async function getBalance() {
+  const config = getConfig();
+
   try {
-    const response = await fetch(`${BASE_URL}/balance`, {
+    const response = await fetch(`${config.baseUrl}/balance`, {
       method: 'GET',
       headers: getHeaders()
     });
@@ -170,12 +191,14 @@ export async function getBalance() {
  * @param {string} roleId 
  */
 export async function getPayouts(period, roleId) {
+  const config = getConfig();
+
   try {
     const params = new URLSearchParams();
     if (period) params.append('period', period);
     if (roleId) params.append('roleId', roleId);
 
-    const url = `${BASE_URL}/payouts?${params.toString()}`;
+    const url = `${config.baseUrl}/payouts?${params.toString()}`;
     
     const response = await fetch(url, {
       method: 'GET',

@@ -31,6 +31,14 @@ export const data = new SlashCommandBuilder()
       .setRequired(true)
       .setMinValue(0)
       .setMaxValue(23)
+  )
+  .addIntegerOption(option =>
+    option
+      .setName('minute')
+      .setDescription('Phut (0-59)')
+      .setRequired(true)
+      .setMinValue(0)
+      .setMaxValue(59)
   );
 
 /**
@@ -68,6 +76,7 @@ export async function execute(interaction, client) {
   try {
     const dayChoice = interaction.options.getString('day');
     const hour = interaction.options.getInteger('hour');
+    const minute = interaction.options.getInteger('minute');
 
     // Chuyen doi day choice sang day of week number
     const dayOfWeek = DAY_MAP[dayChoice];
@@ -83,14 +92,14 @@ export async function execute(interaction, client) {
     }
 
     // Cap nhat database
-    await updateSalaryConfig(dayOfWeek, hour, interaction.user.id);
+    await updateSalaryConfig(dayOfWeek, hour, minute, interaction.user.id);
 
     // Cap nhat scheduler
-    await updateSchedule(dayOfWeek, hour, client);
+    await updateSchedule(dayOfWeek, hour, minute, client);
 
     // Tao embed xac nhan
     const dayName = DAY_NAMES_VI[dayOfWeek];
-    const timeStr = `${String(hour).padStart(2, '0')}:00`;
+    const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 
     const embed = new EmbedBuilder()
       .setColor('#00b300')

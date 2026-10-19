@@ -32,6 +32,22 @@ function getSalaryHistoryCollection() {
   return db.collection('salary_history');
 }
 
+/**
+ * Lay collection salary_notification_config
+ */
+function getSalaryNotificationConfigCollection() {
+  const db = getDatabase();
+  return db.collection('salary_notification_config');
+}
+
+/**
+ * Lay collection salary_debts
+ */
+function getSalaryDebtsCollection() {
+  const db = getDatabase();
+  return db.collection('salary_debts');
+}
+
 // ==================== SALARY COEFFICIENTS ====================
 
 /**
@@ -197,6 +213,7 @@ export async function getSalaryConfig() {
         _id: 'schedule',
         dayOfWeek: 1, // Monday
         hour: 0,
+        minute: 0,
         timezone: 'Asia/Ho_Chi_Minh',
         updatedAt: new Date(),
         updatedBy: 'system'
@@ -204,6 +221,11 @@ export async function getSalaryConfig() {
       
       await collection.insertOne(config);
       console.log('[MongoDB] Created default salary config');
+    }
+    
+    // Them minute mac dinh neu chua co
+    if (config.minute === undefined) {
+      config.minute = 0;
     }
     
     return config;
@@ -217,9 +239,10 @@ export async function getSalaryConfig() {
  * Cap nhat cau hinh lich tra luong
  * @param {number} dayOfWeek 
  * @param {number} hour 
+ * @param {number} minute 
  * @param {string} updatedBy 
  */
-export async function updateSalaryConfig(dayOfWeek, hour, updatedBy) {
+export async function updateSalaryConfig(dayOfWeek, hour, minute, updatedBy) {
   try {
     const collection = getSalaryConfigCollection();
     const result = await collection.updateOne(
@@ -228,6 +251,7 @@ export async function updateSalaryConfig(dayOfWeek, hour, updatedBy) {
         $set: { 
           dayOfWeek,
           hour,
+          minute,
           timezone: 'Asia/Ho_Chi_Minh',
           updatedBy,
           updatedAt: new Date()
@@ -236,7 +260,7 @@ export async function updateSalaryConfig(dayOfWeek, hour, updatedBy) {
       { upsert: true }
     );
 
-    console.log(`[MongoDB] Updated salary config: day=${dayOfWeek}, hour=${hour}`);
+    console.log(`[MongoDB] Updated salary config: day=${dayOfWeek}, hour=${hour}, minute=${minute}`);
     return result;
   } catch (error) {
     console.error('[MongoDB] Error updating salary config:', error);
@@ -304,6 +328,159 @@ export async function getHistoryByPeriod(guildId, period) {
     return history;
   } catch (error) {
     console.error('[MongoDB] Error getting period history:', error);
+    throw error;
+  }
+}
+
+// ==================== NOTIFICATION CONFIG ====================
+
+/**
+ * Lay cau hinh thong bao luong
+ */
+export async function getSalaryNotificationConfig() {
+  try {
+    const collection = getSalaryNotificationConfigCollection();
+    let config = await collection.findOne({ _id: 'notification_schedule' });
+    
+    // Neu chua co config thi tao mac dinh
+    if (!config) {
+      config = {
+        _id: 'notification_schedule',
+        dayOfWeek: 0, // Sunday (1 day before Monday payout)
+        hour: 20,
+        minute: 0,
+        timezone: 'Asia/Ho_Chi_Minh',
+        notificationRoles: [],
+        updatedAt: new Date(),
+        updatedBy: 'system'
+      };
+      
+      await collection.insertOne(config);
+      console.log('[MongoDB] Created default notification config');
+    }
+    
+    return config;
+  } catch (error) {
+    console.error('[MongoDB] Error getting notification config:', error);
+    throw error;
+  }
+}
+
+/**
+ * Cap nhat cau hinh thong bao luong
+ * @param {number} dayOfWeek 
+ * @param {number} hour 
+ * @param {number} minute 
+ * @param {Array} notificationRoles 
+ * @param {string} updatedBy 
+ */
+export async function updateSalaryNotificationConfig(dayOfWeek, hour, minute, notificationRoles, updatedBy) {
+  try {
+    const collection = getSalaryNotificationConfigCollection();
+    const result = await collection.updateOne(
+      { _id: 'notification_schedule' },
+      { 
+        $set: { 
+          dayOfWeek,
+          hour,
+          minute,
+          timezone: 'Asia/Ho_Chi_Minh',
+          notificationRoles,
+          updatedBy,
+          updatedAt: new Date()
+        }
+      },
+      { upsert: true }
+    );
+
+    console.log(`[MongoDB] Updated notification config: day=${dayOfWeek}, hour=${hour}, minute=${minute}`);
+    return result;
+  } catch (error) {
+    console.error('[MongoDB] Error updating notification config:', error);
+    throw error;
+  }
+}
+
+// ==================== DEBTS ====================
+
+/**
+ * Tao ban ghi no luong
+ * @param {Object} debtRecord 
+ */
+export async function createDebt(debtRecord) {
+  try {
+    const collection = getSalaryDebtsCollection();
+    const result = await collection.insertOne({
+      ...debtRecord,
+      createdAt: new Date()
+    });
+    
+    console.log(`[MongoDB] Created debt record: ${debtRecord.debtId}`);
+    return result;
+  } catch (error) {
+    console.error('[MongoDB] Error creating debt:', error);
+    throw error;
+  }
+}
+
+/**
+ * Lay thong tin no theo ID
+ * @param {string} debtId 
+ */
+export async function getDebtById(debtId) {
+  try {
+    const collection = getSalaryDebtsCollection();
+    const debt = await collection.findOne({ debtId });
+    return debt;
+  } catch (error) {
+    console.error('[MongoDB] Error getting debt by ID:', error);
+    throw error;
+  }
+}
+
+/**
+ * Lay tat ca cac ban ghi no
+ * @param {Object} filters 
+ */
+export async function getAllDebts(filters = {}) {
+  try {
+    const collection = getSalaryDebtsCollection();
+    const debts = await collection
+      .find(filters)
+      .sort({ createdAt: -1 })
+      .toArray();
+    
+    return debts;
+  } catch (error) {
+    console.error('[MongoDB] Error getting all debts:', error);
+    throw error;
+  }
+}
+
+/**
+ * Cap nhat trang thai no
+ * @param {string} debtId 
+ * @param {string} status 
+ * @param {Date} paidAt 
+ */
+export async function updateDebtStatus(debtId, status, paidAt) {
+  try {
+    const collection = getSalaryDebtsCollection();
+    const result = await collection.updateOne(
+      { debtId },
+      { 
+        $set: { 
+          status,
+          paidAt,
+          updatedAt: new Date()
+        }
+      }
+    );
+    
+    console.log(`[MongoDB] Updated debt ${debtId} status to ${status}`);
+    return result;
+  } catch (error) {
+    console.error('[MongoDB] Error updating debt status:', error);
     throw error;
   }
 }
