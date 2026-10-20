@@ -21,6 +21,17 @@ API nội bộ của Discord Bot server, chỉ sử dụng trong hệ thống.
 
 **Status:** ✅ Active
 
+### 2. **System Statistics API**
+
+**Purpose:** Lay thong tin pin, RAM, CPU va nhiet do tren Android/Termux
+**Documentation:** [SYSTEM_API.md](./SYSTEM_API.md)
+
+**Endpoint:**
+- `GET /api/system` - Thong tin phan cung cua thiet bi
+
+**Authentication:** Khong yeu cau API key
+**Status:** ✅ Active
+
 ---
 
 ## 🏠 Scope

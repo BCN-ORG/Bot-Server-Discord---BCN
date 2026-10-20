@@ -30,9 +30,11 @@
 - **[features/README.md](./features/README.md)** - Index của tất cả features
 - **[features/payroll/PAYROLL_SYSTEM.md](./features/payroll/PAYROLL_SYSTEM.md)** - Hệ thống trả lương
 - **[features/name-validation/NAME_VALIDATION_SYSTEM.md](./features/name-validation/NAME_VALIDATION_SYSTEM.md)** - Hệ thống kiểm tra tên
+- **[features/system-monitoring/SYSTEM_MONITORING.md](./features/system-monitoring/SYSTEM_MONITORING.md)** - Theo dõi thông tin thiết bị
 
 ### 4. API References
-- **[api/PAYROLL_API.md](./api/PAYROLL_API.md)** - Payroll API (external)
+- **[api/external/PAYROLL_API.md](./api/external/PAYROLL_API.md)** - Payroll API (external)
+- **[api/internal/SYSTEM_API.md](./api/internal/SYSTEM_API.md)** - System statistics API (internal)
 
 ---
 
@@ -89,14 +91,20 @@ doc/
 ├── ARCHITECTURE.md                             # 🏗️ System architecture
 │
 ├── api/                                        # 🔌 External APIs
-│   └── PAYROLL_API.md                         # Payroll API reference
+│   ├── external/
+│   │   └── PAYROLL_API.md                     # Payroll API reference
+│   └── internal/
+│       ├── BIRTHDAY_API.md
+│       └── SYSTEM_API.md                      # Android/Termux system statistics
 │
 └── features/                                   # ✨ Features documentation
     ├── README.md                               # Features index
     ├── payroll/
     │   └── PAYROLL_SYSTEM.md                  # 💰 Payroll system
-    └── name-validation/
-        └── NAME_VALIDATION_SYSTEM.md          # ✏️ Name validation
+    ├── name-validation/
+    │   └── NAME_VALIDATION_SYSTEM.md          # ✏️ Name validation
+    └── system-monitoring/
+        └── SYSTEM_MONITORING.md               # 📱 System monitoring feature
 ```
 
 ---
@@ -111,7 +119,8 @@ doc/
 | Hiểu kiến trúc tổng thể | [ARCHITECTURE.md](./ARCHITECTURE.md) |
 | Thêm role trả lương | [features/payroll/PAYROLL_SYSTEM.md](./features/payroll/PAYROLL_SYSTEM.md) |
 | Config name validation | [features/name-validation/NAME_VALIDATION_SYSTEM.md](./features/name-validation/NAME_VALIDATION_SYSTEM.md) |
-| Gọi Payroll API | [api/PAYROLL_API.md](./api/PAYROLL_API.md) |
+| Gọi Payroll API | [api/external/PAYROLL_API.md](./api/external/PAYROLL_API.md) |
+| Xem API thông tin thiết bị | [api/internal/SYSTEM_API.md](./api/internal/SYSTEM_API.md) |
 | Debug MongoDB issues | [ARCHITECTURE.md](./ARCHITECTURE.md) → Database section |
 | Xem tất cả commands | [features/README.md](./features/README.md) |
 | Troubleshoot errors | [QUICK_START.md](./QUICK_START.md) → Troubleshooting |
@@ -120,9 +129,8 @@ doc/
 
 ## 📊 Documentation Stats
 
-- **Total files**: 7 markdown files
-- **Features documented**: 2 (Payroll, Name Validation)
-- **External APIs**: 1 (Payroll API)
+- **Features documented**: 3 (Payroll, Name Validation, System Monitoring)
+- **APIs**: 1 external, 2 internal
 - **Last updated**: 2026-10-18
 
 ---

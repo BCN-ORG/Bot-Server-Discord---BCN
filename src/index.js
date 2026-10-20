@@ -126,6 +126,7 @@ app.listen(PORT, () => {
   console.log(`[INFO] Express server đang chạy tại http://localhost:${PORT}`);
   console.log(`[INFO] API endpoints:`);
   console.log(`       - GET  http://localhost:${PORT}/api/health`);
+  console.log(`       - GET  http://localhost:${PORT}/api/system`);
   console.log(`       - GET  http://localhost:${PORT}/api/birthdays/today`);
   console.log(`       - POST http://localhost:${PORT}/api/birthdays/by-date`);
 });

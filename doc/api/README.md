@@ -12,7 +12,8 @@ doc/api/
 ├── external/           # API External (cho bên ngoài gọi vào)
 │   └── PAYROLL_API.md  # API của bot "Viện kiểm sát" (payroll service)
 └── internal/           # API Internal (nội bộ server)
-    └── BIRTHDAY_API.md # API sinh nhật (internal endpoints)
+    ├── BIRTHDAY_API.md # API sinh nhật
+    └── SYSTEM_API.md   # API thông tin thiết bị Android/Termux
 ```
 
 ---
@@ -52,6 +53,18 @@ API nội bộ của server bot, chỉ dùng trong hệ thống.
 **Authentication:** Header `X-API-Key` (danh sách key trong `API_KEYS`)
 
 **Docs:** [BIRTHDAY_API.md](./internal/BIRTHDAY_API.md)
+
+### **System Statistics API** (`internal/SYSTEM_API.md`)
+
+**Scope:** Internal server endpoint
+**Purpose:** Lay thong tin pin, RAM, CPU va nhiet do tren Android/Termux
+
+**Endpoint:**
+- `GET /api/system` - Thong tin phan cung cua thiet bi
+
+**Authentication:** Khong yeu cau API key
+
+**Docs:** [SYSTEM_API.md](./internal/SYSTEM_API.md)
 
 ---
 
@@ -178,6 +191,7 @@ curl http://localhost:3000/api/birthdays/today \
 
 ### Internal APIs
 - [Birthday API](./internal/BIRTHDAY_API.md)
+- [System Statistics API](./internal/SYSTEM_API.md)
 
 ---
 

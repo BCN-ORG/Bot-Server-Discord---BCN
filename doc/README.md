@@ -7,13 +7,19 @@ Tài liệu hệ thống Discord Bot.
 ```
 doc/
 ├── README.md                    # File này
-├── api/                         # Tài liệu API bên ngoài
-│   └── PAYROLL_API.md          # API trả lương (Viện kiểm sát bot)
+├── api/                         # Tài liệu API
+│   ├── external/                 # API bên ngoài
+│   │   └── PAYROLL_API.md       # API trả lương (Viện kiểm sát bot)
+│   └── internal/                # API nội bộ
+│       ├── BIRTHDAY_API.md      # API sinh nhật
+│       └── SYSTEM_API.md        # API thống kê thiết bị Android/Termux
 └── features/                    # Tài liệu các tính năng của bot
     ├── payroll/                 # Hệ thống trả lương tự động
     │   └── PAYROLL_SYSTEM.md   # Kiến trúc, luồng nghiệp vụ, commands
-    └── name-validation/         # Hệ thống kiểm tra & quản lý tên
-        └── (đang phát triển)
+    ├── name-validation/         # Hệ thống kiểm tra & quản lý tên
+    │   └── NAME_VALIDATION_SYSTEM.md
+    └── system-monitoring/       # Theo dõi thông tin thiết bị
+        └── SYSTEM_MONITORING.md
 ```
 
 ## Tài liệu theo tính năng
@@ -30,7 +36,7 @@ Hệ thống tự động trả lương hàng tuần cho members có role đư�
 - Edge cases & error handling
 
 ### 🔹 Name Validation System (Kiểm tra tên)
-📄 `features/name-validation/` _(đang phát triển)_
+📄 [`features/name-validation/NAME_VALIDATION_SYSTEM.md`](./features/name-validation/NAME_VALIDATION_SYSTEM.md)
 
 Hệ thống kiểm tra nickname thành viên và quản lý vi phạm.
 
@@ -40,12 +46,18 @@ Hệ thống kiểm tra nickname thành viên và quản lý vi phạm.
 - Rename workflow
 - Exception list management
 
+### 🔹 System Monitoring (Thông tin thiết bị)
+📄 [`features/system-monitoring/SYSTEM_MONITORING.md`](./features/system-monitoring/SYSTEM_MONITORING.md)
+
+Endpoint đọc thông tin phần cứng trên Android/Termux. Chi tiết API:
+[`api/internal/SYSTEM_API.md`](./api/internal/SYSTEM_API.md).
+
 ---
 
 ## Tài liệu API bên ngoài
 
 ### 🔸 Payroll API
-📄 [`api/PAYROLL_API.md`](./api/PAYROLL_API.md)
+📄 [`api/external/PAYROLL_API.md`](./api/external/PAYROLL_API.md)
 
 API của bot "Viện kiểm sát" để thực hiện giao dịch trả lương.
 

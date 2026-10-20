@@ -50,6 +50,22 @@ Tài liệu chi tiết về các tính năng của Discord Bot.
 
 ---
 
+### 3. 📱 System Monitoring (Theo dõi thông tin thiết bị)
+📄 **[SYSTEM_MONITORING.md](./system-monitoring/SYSTEM_MONITORING.md)**
+
+**Mô tả**: Cung cấp thông tin pin, RAM, CPU và nhiệt độ khi bot chạy trên Android/Termux.
+
+**Trạng thái**: ✅ **Hoàn thành**
+
+**Highlights**:
+- Chỉ thực thi lệnh hệ thống trên Android/Termux
+- Có fallback cho dữ liệu RAM và CPU
+- Trả các chỉ số sẵn có nếu một số lệnh hoặc file hệ thống không khả dụng
+
+**API**: [`GET /api/system`](../api/internal/SYSTEM_API.md)
+
+---
+
 ## 🗂️ Cấu trúc Source Code
 
 ### Payroll System
@@ -101,6 +117,7 @@ src/
 |---------|-----|------------|----------|
 | **Payroll** | [📄](./payroll/PAYROLL_SYSTEM.md) | `src/features/payroll/index.js` | `/salary-*` (4 lệnh) |
 | **Name Validation** | [📄](./name-validation/NAME_VALIDATION_SYSTEM.md) | `src/features/rename/index.js` | `/rename` |
+| **System Monitoring** | [📄](./system-monitoring/SYSTEM_MONITORING.md) | `src/routes/systemRoutes.js` | `GET /api/system` |
 
 ---
 

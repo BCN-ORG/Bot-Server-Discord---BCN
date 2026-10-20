@@ -5,6 +5,7 @@
 
 import express from 'express';
 import birthdayRoutes from './birthdayRoutes.js';
+import systemRoutes from './systemRoutes.js';
 
 const router = express.Router();
 
@@ -19,5 +20,6 @@ router.get('/health', (req, res) => {
 
 // Birthday routes
 router.use('/birthdays', birthdayRoutes);
+router.use('/', systemRoutes);
 
 export default router;
