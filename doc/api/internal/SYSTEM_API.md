@@ -2,7 +2,7 @@
 
 ## `GET /api/system`
 
-Returns battery, memory, CPU, and thermal readings when the server is running on
+Returns battery, memory, and battery temperature when the server is running on
 Android or Termux.
 
 ```bash
@@ -15,33 +15,35 @@ HTTP `200`:
 
 ```json
 {
-  "status": "success",
-  "timestamp": "2026-10-20T13:00:00.000Z",
-  "hardware": {
+  "success": true,
+  "device": {
+    "temperature": "32.5°C (Battery)",
+    "ram": {
+      "total": 4096,
+      "used": 2048,
+      "free": 2048,
+      "usagePercentage": "50.0%"
+    },
     "battery": {
       "percentage": 85,
-      "status": "DISCHARGING"
-    },
-    "ram": "total        used        free ...",
-    "cpu_load": "CPU: 2% usr 1% sys ...",
-    "temperatures_celsius": [35.2, 37.1]
-  },
-  "unavailable": []
+      "status": "DISCHARGING",
+      "plugged": "UNPLUGGED",
+      "health": "GOOD"
+    }
+  }
 }
 ```
 
 | Field | Description |
 | --- | --- |
-| `timestamp` | Time the readings were collected, in ISO 8601 format. |
-| `hardware.battery` | Parsed output from `termux-battery-status`, or `null` if unavailable. |
-| `hardware.ram` | Output from `free -m`, or `/proc/meminfo` as a fallback. |
-| `hardware.cpu_load` | Output from `top`, or the first line of `/proc/stat` as a fallback. |
-| `hardware.temperatures_celsius` | Readings from available thermal zones under `/sys/class/thermal`. |
-| `unavailable` | Indicators for readings that could not be collected, such as `battery:command_not_installed`. |
+| `device.temperature` | Battery temperature with `°C (Battery)` suffix, or `Không xác định` if unavailable. |
+| `device.ram` | RAM total, used, and free in MB, plus usage percentage; `null` if `free -m` is unavailable or unparseable. |
+| `device.battery` | Selected battery fields (`percentage`, `status`, `plugged`, `health`), or `null` if unavailable. |
 
-The exact battery fields and command output depend on the Android device and
-installed utilities. Unavailable readings do not prevent the endpoint from
-returning other data.
+The exact battery values depend on the Android device and Termux:API.
+Install the `termux-api` package and the Termux:API Android application to
+enable battery readings. Missing battery or RAM data does not prevent the
+endpoint from returning the other reading.
 
 ### Unsupported platform
 
@@ -49,8 +51,8 @@ On a host not detected as Android or Termux, the endpoint returns HTTP `501`:
 
 ```json
 {
-  "status": "unsupported",
-  "message": "System statistics are available only on Android or Termux."
+  "success": false,
+  "error": "System statistics are available only on Android or Termux."
 }
 ```
 
@@ -58,7 +60,7 @@ An unexpected collection failure returns HTTP `500`:
 
 ```json
 {
-  "status": "error",
-  "message": "Unable to collect system statistics."
+  "success": false,
+  "error": "Lỗi đọc phần cứng"
 }
 ```
