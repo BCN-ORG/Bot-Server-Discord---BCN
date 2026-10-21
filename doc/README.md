@@ -52,6 +52,12 @@ Hệ thống kiểm tra nickname thành viên và quản lý vi phạm.
 Endpoint đọc thông tin phần cứng trên Android/Termux. Chi tiết API:
 [`api/internal/SYSTEM_API.md`](./api/internal/SYSTEM_API.md).
 
+### 🔹 Reaction Roles (Nhận role bằng reaction)
+📄 [`features/reaction-roles/REACTION_ROLES_WORKFLOW.md`](./features/reaction-roles/REACTION_ROLES_WORKFLOW.md)
+
+Workflow dự kiến cho việc cấp role theo reaction với giới hạn số thành viên
+riêng cho từng cặp message/role. Tính năng chưa được triển khai.
+
 ---
 
 ## Tài liệu API bên ngoài

@@ -31,6 +31,7 @@
 - **[features/payroll/PAYROLL_SYSTEM.md](./features/payroll/PAYROLL_SYSTEM.md)** - Hệ thống trả lương
 - **[features/name-validation/NAME_VALIDATION_SYSTEM.md](./features/name-validation/NAME_VALIDATION_SYSTEM.md)** - Hệ thống kiểm tra tên
 - **[features/system-monitoring/SYSTEM_MONITORING.md](./features/system-monitoring/SYSTEM_MONITORING.md)** - Theo dõi thông tin thiết bị
+- **[features/reaction-roles/REACTION_ROLES_WORKFLOW.md](./features/reaction-roles/REACTION_ROLES_WORKFLOW.md)** - Workflow nhận role bằng reaction
 
 ### 4. API References
 - **[api/external/PAYROLL_API.md](./api/external/PAYROLL_API.md)** - Payroll API (external)
@@ -103,8 +104,10 @@ doc/
     │   └── PAYROLL_SYSTEM.md                  # 💰 Payroll system
     ├── name-validation/
     │   └── NAME_VALIDATION_SYSTEM.md          # ✏️ Name validation
-    └── system-monitoring/
-        └── SYSTEM_MONITORING.md               # 📱 System monitoring feature
+    ├── system-monitoring/
+    │   └── SYSTEM_MONITORING.md               # 📱 System monitoring feature
+    └── reaction-roles/
+        └── REACTION_ROLES_WORKFLOW.md         # 🎭 Reaction roles workflow
 ```
 
 ---
@@ -121,6 +124,7 @@ doc/
 | Config name validation | [features/name-validation/NAME_VALIDATION_SYSTEM.md](./features/name-validation/NAME_VALIDATION_SYSTEM.md) |
 | Gọi Payroll API | [api/external/PAYROLL_API.md](./api/external/PAYROLL_API.md) |
 | Xem API thông tin thiết bị | [api/internal/SYSTEM_API.md](./api/internal/SYSTEM_API.md) |
+| Xem workflow Reaction Roles | [features/reaction-roles/REACTION_ROLES_WORKFLOW.md](./features/reaction-roles/REACTION_ROLES_WORKFLOW.md) |
 | Debug MongoDB issues | [ARCHITECTURE.md](./ARCHITECTURE.md) → Database section |
 | Xem tất cả commands | [features/README.md](./features/README.md) |
 | Troubleshoot errors | [QUICK_START.md](./QUICK_START.md) → Troubleshooting |
@@ -129,7 +133,7 @@ doc/
 
 ## 📊 Documentation Stats
 
-- **Features documented**: 3 (Payroll, Name Validation, System Monitoring)
+- **Features documented**: 4 (Payroll, Name Validation, System Monitoring, Reaction Roles)
 - **APIs**: 1 external, 2 internal
 - **Last updated**: 2026-10-18
 

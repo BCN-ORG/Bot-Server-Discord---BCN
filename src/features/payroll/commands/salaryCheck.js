@@ -131,7 +131,7 @@ export async function execute(interaction) {
 
       embed.addFields({
         name: '📅 Thời gian',
-        value: 'Lương sẽ được trả theo lịch trình đã cấu hình.\nDùng `/salary-schedule` để xem chi tiết.',
+        value: 'Lương sẽ được trả theo lịch trình đã cấu hình.\nDùng `/salary-info` để xem chi tiết.',
         inline: false
       });
     }

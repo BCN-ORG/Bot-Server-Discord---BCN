@@ -66,6 +66,18 @@ Tài liệu chi tiết về các tính năng của Discord Bot.
 
 ---
 
+### 4. 🎭 Reaction Roles (Nhận role bằng reaction)
+📄 **[REACTION_ROLES_WORKFLOW.md](./reaction-roles/REACTION_ROLES_WORKFLOW.md)**
+
+**Mô tả**: Thành viên react vào message để nhận role; mỗi cặp message/role có
+emoji và giới hạn số thành viên riêng.
+
+**Trạng thái**: ✅ **Đã triển khai**
+
+**Lệnh**: `/reaction-role set`, `/reaction-role remove`, `/reaction-role list`
+
+---
+
 ## 🗂️ Cấu trúc Source Code
 
 ### Payroll System
@@ -118,6 +130,7 @@ src/
 | **Payroll** | [📄](./payroll/PAYROLL_SYSTEM.md) | `src/features/payroll/index.js` | `/salary-*` (4 lệnh) |
 | **Name Validation** | [📄](./name-validation/NAME_VALIDATION_SYSTEM.md) | `src/features/rename/index.js` | `/rename` |
 | **System Monitoring** | [📄](./system-monitoring/SYSTEM_MONITORING.md) | `src/routes/systemRoutes.js` | `GET /api/system` |
+| **Reaction Roles** | [📄](./reaction-roles/REACTION_ROLES_WORKFLOW.md) | `src/features/reactionRoles/index.js` | `/reaction-role` |
 
 ---
 

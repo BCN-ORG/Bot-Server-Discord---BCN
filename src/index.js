@@ -3,12 +3,17 @@ import cors from 'cors';
 const app = express();
 const PORT = process.env.PORT || 3000;
 import 'dotenv/config';
-import { Client, GatewayIntentBits } from 'discord.js';
+import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { registerCommands, setupInteractionHandlers } from './discord.js';
 import { handleGuildMemberAdd } from './events/guildMemberAdd.js';
 import { handleGuildMemberUpdate } from './events/guildMemberUpdate.js';
 import { handleVoiceStateUpdate } from './events/voiceStateUpdate.js';
 import { handleMessageCreate } from './events/messageCreate.js';
+import {
+  handleReactionRoleAdd,
+  handleReactionRoleMemberRemove,
+  handleReactionRoleRemove
+} from './features/reactionRoles/index.js';
 import { startViolationChecker } from './schedulers/violationChecker.js';
 import { connectMongoDB } from './database/mongodb.js';
 import { connectBCN } from './database/bcn.js';
@@ -55,8 +60,10 @@ const client = new Client({
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildVoiceStates
-  ]
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildMessageReactions
+  ],
+  partials: [Partials.Channel, Partials.Message, Partials.Reaction, Partials.User]
 });
 
 // Sự kiện khi bot sẵn sàng
@@ -105,6 +112,9 @@ client.on('voiceStateUpdate', handleVoiceStateUpdate);
 
 // Sự kiện khi member gửi message
 client.on('messageCreate', handleMessageCreate);
+client.on('messageReactionAdd', handleReactionRoleAdd);
+client.on('messageReactionRemove', handleReactionRoleRemove);
+client.on('guildMemberRemove', handleReactionRoleMemberRemove);
 
 // Thiết lập xử lý tương tác
 setupInteractionHandlers(client);

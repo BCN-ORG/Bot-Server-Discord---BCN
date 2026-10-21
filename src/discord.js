@@ -2,6 +2,7 @@ import { REST, Routes, EmbedBuilder } from 'discord.js';
 import renameFeature from './features/rename/index.js';
 import * as schedulerFeature from './features/scheduler/index.js';
 import * as payrollFeature from './features/payroll/index.js';
+import * as reactionRolesFeature from './features/reactionRoles/index.js';
 
 /**
  * Dang ky lenh slash commands voi Discord
@@ -13,6 +14,7 @@ export async function registerCommands(token, clientId, guildId) {
   const commands = [
     renameFeature.command.toJSON(),
     schedulerFeature.data.toJSON(),
+    reactionRolesFeature.data.toJSON(),
     payrollFeature.salaryCoefficient.data.toJSON(),
     payrollFeature.salaryRoles.data.toJSON(),
     payrollFeature.salarySchedule.data.toJSON(),
@@ -58,6 +60,10 @@ export function setupInteractionHandlers(client) {
       // Xu ly lenh /scheduler
       if (interaction.isChatInputCommand() && interaction.commandName === 'scheduler') {
         await schedulerFeature.execute(interaction);
+      }
+
+      if (interaction.isChatInputCommand() && interaction.commandName === 'reaction-role') {
+        await reactionRolesFeature.execute(interaction);
       }
 
       // Xu ly lenh /salary-coefficient
