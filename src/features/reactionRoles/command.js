@@ -50,6 +50,14 @@ export const data = new SlashCommandBuilder()
           .setMaxLength(100)
           .setRequired(false)
       )
+      .addIntegerOption(option =>
+        option
+          .setName('duration_days')
+          .setDescription('Thời hạn role tính theo ngày; bỏ trống để không hết hạn')
+          .setMinValue(1)
+          .setMaxValue(36500)
+          .setRequired(false)
+      )
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -87,6 +95,7 @@ export async function execute(interaction) {
       const role = interaction.options.getRole('role', true);
       const limit = interaction.options.getInteger('limit', true);
       const emoji = interaction.options.getString('emoji') || 'all';
+      const durationDays = interaction.options.getInteger('duration_days');
 
       const result = await setConfig({
         guild: interaction.guild,
@@ -94,7 +103,8 @@ export async function execute(interaction) {
         messageId,
         role,
         limit,
-        emoji
+        emoji,
+        durationDays
       });
       await interaction.reply({ content: result, ephemeral: true });
       return;
@@ -120,6 +130,7 @@ export async function execute(interaction) {
       ? displayedConfigs.map(config => (
         `• Tin nhắn \`${config.messageId}\` → <@&${config.roleId}> | ` +
         `emoji: \`${config.emojiLabel}\` | limit: **${config.limit}** | ` +
+        `thời hạn: **${config.durationDays ? `${config.durationDays} ngày` : 'không hết hạn'}** | ` +
         `đã nhận: **${config.claimants?.length || 0}**`
       )).join('\n')
       : 'Server chưa có cấu hình reaction role.';

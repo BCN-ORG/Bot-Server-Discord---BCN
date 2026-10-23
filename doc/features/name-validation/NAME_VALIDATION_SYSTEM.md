@@ -1,24 +1,25 @@
-# Hệ Thống Kiểm Tra & Quản Lý Tên (Name Validation System)
+# Hệ thống kiểm tra và quản lý tên
 
-> 📝 **Trạng thái**: Đang tài liệu hóa từ code hiện có
+> 📝 **Trạng thái**: Đang hoàn thiện tài liệu dựa trên mã nguồn hiện có
 
 ## Tổng quan
 
-Hệ thống tự động kiểm tra nickname của thành viên Discord theo quy tắc đặt tên, quản lý vi phạm và tự động kick sau 48 giờ nếu không sửa.
+Hệ thống tự động kiểm tra biệt danh thành viên Discord theo quy tắc đặt tên,
+quản lý vi phạm và tự động kick sau 48 giờ nếu thành viên không sửa tên.
 
 ### Đặc điểm chính
 
-- ✅ **Tự động kiểm tra**: Khi member join, đổi nickname, hoặc nhắn tin
-- ✅ **Rename workflow**: Modal để member tự nhập tên đúng format
-- ✅ **Vi phạm tracking**: Lưu thời gian vi phạm đầu tiên, theo dõi 48h
-- ✅ **Auto-kick**: Scheduler chạy định kỳ, kick member hết hạn
-- ✅ **Exception list**: Whitelist user IDs được miễn trừ kiểm tra
+- ✅ **Tự động kiểm tra**: Khi thành viên tham gia máy chủ, đổi biệt danh hoặc gửi tin nhắn
+- ✅ **Quy trình đổi tên**: Biểu mẫu để thành viên tự nhập tên đúng định dạng
+- ✅ **Theo dõi vi phạm**: Lưu thời điểm vi phạm đầu tiên và theo dõi trong 48 giờ
+- ✅ **Tự động kick**: Tác vụ định kỳ kick thành viên đã quá hạn
+- ✅ **Danh sách miễn trừ**: ID người dùng được miễn kiểm tra
 
 ---
 
 ## Quy tắc đặt tên
 
-### Format yêu cầu
+### Định dạng yêu cầu
 ```
 Họ Tên Đệm Tên
 ```
@@ -31,10 +32,10 @@ Họ Tên Đệm Tên
 
 ### Ví dụ
 
-| Nickname | Hợp lệ | Lý do |
+| Biệt danh | Hợp lệ | Lý do |
 |----------|--------|-------|
-| `Nguyen Minh Vu` | ✅ | Đúng format |
-| `Nguyen Van A` | ✅ | 3 từ, chỉ chữ cái |
+| `Nguyen Minh Vu` | ✅ | Đúng định dạng |
+| `Nguyen Van A` | ✅ | 3 từ, chỉ có chữ cái |
 | `Vu` | ❌ | Chỉ 1 từ (cần 2-5) |
 | `Nguyen123` | ❌ | Có số |
 | `Vu🔥` | ❌ | Có emoji |
@@ -45,10 +46,10 @@ Họ Tên Đệm Tên
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      Discord Bot                             │
+│                         Bot Discord                           │
 │                                                              │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │              Events (guildMemberAdd, etc.)             │ │
+│  │       Sự kiện (guildMemberAdd và các sự kiện khác)     │ │
 │  └────────────────────────────────────────────────────────┘ │
 │         │                                                    │
 │         ▼                                                    │
@@ -68,16 +69,16 @@ Họ Tên Đệm Tên
 │  └────────────────────────────────────────────────────────┘ │
 │                                                              │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │       violationChecker.js (Scheduler)                  │ │
+│  │       violationChecker.js (tác vụ định kỳ)             │ │
 │  │  - Chạy mỗi 6 giờ                                      │ │
-│  │  - Kick members hết hạn 48h                            │ │
+│  │  - Kick thành viên quá hạn 48 giờ                      │ │
 │  └────────────────────────────────────────────────────────┘ │
 │                                                              │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │         rename/ (Feature Module)                       │ │
-│  │  - /rename command                                     │ │
-│  │  - Modal nhập tên                                      │ │
-│  │  - Validate & update nickname                          │ │
+│  │         rename/ (module tính năng)                     │ │
+│  │  - Lệnh /rename                                        │ │
+│  │  - Biểu mẫu nhập tên                                   │ │
+│  │  - Kiểm tra và cập nhật biệt danh                     │ │
 │  └────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -86,120 +87,120 @@ Họ Tên Đệm Tên
 
 ## Luồng nghiệp vụ
 
-### 1. Member Join Server
+### 1. Thành viên tham gia máy chủ
 
 ```
-1. EVENT: guildMemberAdd
+1. SỰ KIỆN: guildMemberAdd
    └─► handleGuildMemberAdd(member)
 
-2. CHECK NICKNAME
+2. KIỂM TRA BIỆT DANH
    └─► checkMemberNickname(member)
-       ├─► Lấy displayName
-       ├─► Kiểm tra exception list
-       ├─► Validate theo quy tắc
-       └─► Return { valid: boolean, nickname: string }
+       ├─► Lấy tên hiển thị
+       ├─► Kiểm tra danh sách miễn trừ
+       ├─► Kiểm tra theo quy tắc
+       └─► Trả về { valid: boolean, nickname: string }
 
-3a. VALID ✅
+3a. HỢP LỆ ✅
     └─► Không làm gì
 
-3b. INVALID ❌
+3b. KHÔNG HỢP LỆ ❌
     └─► handleInvalidNickname(member, nickname)
-        ├─► Tạo violation record (DB)
+        ├─► Tạo bản ghi vi phạm (DB)
         │   └─ { userId, guildId, firstViolationAt, notifiedAt: [] }
         │
         └─► Gửi thông báo vào kênh "huong-dan"
             ├─ Embed: Yêu cầu đổi tên
-            ├─ Button: "Nhập họ và tên"
-            └─ Hạn: 48 giờ
+            ├─ Nút: "Nhập họ và tên"
+            └─ Thời hạn: 48 giờ
 ```
 
-### 2. Member Đổi Nickname
+### 2. Thành viên đổi biệt danh
 
 ```
-1. EVENT: guildMemberUpdate
-   └─► if (nickname changed)
+1. SỰ KIỆN: guildMemberUpdate
+   └─► nếu biệt danh thay đổi
 
-2. CHECK NICKNAME
+2. KIỂM TRA BIỆT DANH
    └─► checkMemberNickname(member)
 
-3a. NOW VALID ✅
+3a. HIỆN ĐÃ HỢP LỆ ✅
     └─► handleValidNickname(member)
-        ├─► Xóa violation (nếu có)
-        └─► Gửi DM chúc mừng (optional)
+        ├─► Xóa vi phạm (nếu có)
+        └─► Gửi tin nhắn riêng chúc mừng (nếu có thể)
 
-3b. STILL INVALID ❌
+3b. VẪN KHÔNG HỢP LỆ ❌
     └─► handleInvalidNickname(member, nickname)
-        └─► Update notifiedAt, gửi nhắc nhở
+        └─► Cập nhật notifiedAt, gửi nhắc nhở
 ```
 
-### 3. Member Nhắn Tin (First Message)
+### 3. Thành viên gửi tin nhắn đầu tiên
 
 ```
-1. EVENT: messageCreate
-   └─► if (first message from this user)
+1. SỰ KIỆN: messageCreate
+   └─► nếu đây là tin nhắn đầu tiên của người dùng
 
-2. CHECK NICKNAME
+2. KIỂM TRA BIỆT DANH
    └─► checkMemberNickname(member)
 
-3. INVALID ❌
-   └─► Gửi reply với button "Đổi tên ngay"
+3. KHÔNG HỢP LỆ ❌
+   └─► Trả lời bằng nút "Đổi tên ngay"
 ```
 
-### 4. Scheduler - Auto Kick
+### 4. Tác vụ định kỳ - tự động kick
 
 ```
-1. CRON JOB (mỗi 6 giờ)
+1. TÁC VỤ CRON (mỗi 6 giờ)
    └─► violationChecker.checkViolations(client)
 
-2. GET EXPIRED
+2. LẤY CÁC VI PHẠM QUÁ HẠN
    └─► getExpiredViolations(guildId)
-       └─► Lấy violations có firstViolationAt > 48h
+       └─► Lấy các vi phạm có firstViolationAt quá 48 giờ
 
-3. KICK MEMBERS
-   ├─► For each violation:
-   │   ├─► Gửi DM thông báo (nếu được)
-   │   ├─► Kick khỏi server
-   │   └─► Xóa violation record
+3. KICK THÀNH VIÊN
+   ├─► Với từng vi phạm:
+   │   ├─► Gửi tin nhắn riêng thông báo (nếu có thể)
+   │   ├─► Kick khỏi máy chủ
+   │   └─► Xóa bản ghi vi phạm
    │
-   └─► Log kết quả
+   └─► Ghi nhật ký kết quả
 ```
 
-### 5. Rename Command & Modal
+### 5. Lệnh đổi tên và biểu mẫu
 
 ```
-1. USER: /rename (hoặc bấm button)
+1. NGƯỜI DÙNG: /rename (hoặc bấm nút)
 
-2. SHOW MODAL
-   └─► Modal với input field "Họ và tên"
+2. HIỂN THỊ BIỂU MẪU
+   └─► Biểu mẫu có trường nhập "Họ và tên"
 
-3. USER: Submit modal
+3. NGƯỜI DÙNG: Gửi biểu mẫu
 
-4. VALIDATE
+4. KIỂM TRA DỮ LIỆU
    └─► validateName(input)
-       ├─► Check format
-       └─► Return { valid, reason }
+       ├─► Kiểm tra định dạng
+       └─► Trả về { valid, reason }
 
-5a. VALID ✅
-    └─► Update nickname
+5a. HỢP LỆ ✅
+    └─► Cập nhật biệt danh
         ├─► member.setNickname(newName)
-        ├─► Xóa violation
-        └─► Reply success
+        ├─► Xóa vi phạm
+        └─► Trả lời thành công
 
-5b. INVALID ❌
-    └─► Reply với lý do lỗi
+5b. KHÔNG HỢP LỆ ❌
+    └─► Trả lời kèm lý do lỗi
 ```
 
 ---
 
-## Database Schema
+## Cấu trúc cơ sở dữ liệu
 
-### Collection: `violations`
+### Bộ sưu tập `violations`
 
 ```javascript
 {
   _id: ObjectId,
-  userId: "123456789",           // Discord user ID
-  guildId: "987654321",          // Discord guild ID
+  userId: "123456789",           // ID người dùng Discord
+  guildId: "987654321",          // ID máy chủ Discord
   nickname: "InvalidName123",    // Tên không hợp lệ
   firstViolationAt: ISODate("2026-10-15T10:00:00Z"),
   notifiedAt: [                   // Lịch sử thông báo
@@ -212,25 +213,25 @@ Họ Tên Đệm Tên
 }
 ```
 
-### Indexes
+### Chỉ mục
 ```javascript
-{ userId: 1, guildId: 1 }        // Unique
-{ firstViolationAt: 1 }          // For expiry queries
+{ userId: 1, guildId: 1 }        // Duy nhất
+{ firstViolationAt: 1 }          // Phục vụ truy vấn quá hạn
 { status: 1 }
 ```
 
 ---
 
-## Configuration
+## Cấu hình
 
-### Environment Variables
+### Biến môi trường
 
 ```env
-# Exception list - User IDs được miễn trừ kiểm tra
+# Danh sách ID người dùng được miễn kiểm tra
 VALIDATION_EXCEPTION_UIDS=946236759522545665,1202579919196917812
 ```
 
-### Scheduler Config
+### Cấu hình tác vụ định kỳ
 
 - **Tần suất**: Mỗi 6 giờ
 - **Cron**: `0 */6 * * *`
@@ -238,92 +239,92 @@ VALIDATION_EXCEPTION_UIDS=946236759522545665,1202579919196917812
 
 ---
 
-## Commands & Interactions
+## Lệnh và tương tác
 
-### Slash Command: `/rename`
+### Lệnh slash: `/rename`
 
-**Mô tả**: Đổi nickname theo format yêu cầu
+**Mô tả**: Đổi biệt danh theo định dạng yêu cầu
 
-**Flow**:
-1. User gõ `/rename`
-2. Bot hiện modal với input field
-3. User nhập tên mới
-4. Bot validate và update
+**Luồng xử lý**:
+1. Người dùng gọi `/rename`.
+2. Bot hiển thị biểu mẫu nhập liệu.
+3. Người dùng nhập tên mới.
+4. Bot kiểm tra tên và cập nhật biệt danh.
 
-**Permissions**: Không yêu cầu (mọi member)
+**Quyền**: Không yêu cầu quyền đặc biệt; mọi thành viên đều có thể sử dụng.
 
-### Button: "Nhập họ và tên" / "Đổi tên ngay"
+### Nút: "Nhập họ và tên" / "Đổi tên ngay"
 
-**Trigger**: Bấm button trong embed
-**Action**: Mở rename modal (giống `/rename`)
-
----
-
-## Files liên quan
-
-### Core Logic
-- `src/services/nameValidationService.js` - Validation & violation handling
-- `src/database/violations.js` - MongoDB CRUD cho violations
-
-### Events
-- `src/events/guildMemberAdd.js` - Check khi join
-- `src/events/guildMemberUpdate.js` - Check khi đổi nickname
-- `src/events/messageCreate.js` - Check khi nhắn tin đầu tiên
-- `src/events/voiceStateUpdate.js` - Check khi vào voice channel
-
-### Feature Module
-- `src/features/rename/command.js` - /rename command
-- `src/features/rename/modal.js` - Modal UI
-- `src/features/rename/validate.js` - Name validation logic
-- `src/features/rename/index.js` - Export module
-
-### Scheduler
-- `src/schedulers/violationChecker.js` - Auto-kick scheduler
+**Kích hoạt**: Bấm nút trong embed.
+**Thao tác**: Mở biểu mẫu đổi tên (giống `/rename`).
 
 ---
 
-## Edge Cases & Error Handling
+## Tệp liên quan
 
-### 1. Member rời server trước khi kick
-- Violation vẫn tồn tại trong DB
-- Scheduler log "Member not found" và xóa violation
+### Xử lý chính
+- `src/services/nameValidationService.js` - Kiểm tra tên và xử lý vi phạm
+- `src/database/violations.js` - Thao tác dữ liệu vi phạm trong MongoDB
+
+### Sự kiện
+- `src/events/guildMemberAdd.js` - Kiểm tra khi tham gia máy chủ
+- `src/events/guildMemberUpdate.js` - Kiểm tra khi đổi biệt danh
+- `src/events/messageCreate.js` - Kiểm tra khi gửi tin nhắn đầu tiên
+- `src/events/voiceStateUpdate.js` - Kiểm tra khi vào kênh thoại
+
+### Module tính năng
+- `src/features/rename/command.js` - Lệnh /rename
+- `src/features/rename/modal.js` - Giao diện biểu mẫu
+- `src/features/rename/validate.js` - Kiểm tra tên
+- `src/features/rename/index.js` - Xuất module
+
+### Tác vụ định kỳ
+- `src/schedulers/violationChecker.js` - Tác vụ tự động kick
+
+---
+
+## Trường hợp ngoại lệ và xử lý lỗi
+
+### 1. Thành viên rời máy chủ trước khi bị kick
+- Bản ghi vi phạm vẫn còn trong cơ sở dữ liệu.
+- Scheduler ghi nhật ký "Member not found" rồi xóa bản ghi vi phạm.
 
 ### 2. Bot không có quyền kick
-- Log error
-- Không xóa violation (retry lần sau)
+- Ghi nhật ký lỗi.
+- Không xóa bản ghi vi phạm để thử lại ở lần chạy sau.
 
-### 3. Bot không có quyền đổi nickname
-- Hiện lỗi khi user submit modal
-- Không xóa violation
+### 3. Bot không có quyền đổi biệt danh
+- Hiển thị lỗi khi người dùng gửi biểu mẫu.
+- Không xóa bản ghi vi phạm.
 
-### 4. Member trong exception list
-- Bỏ qua validation hoàn toàn
-- Không tạo violation
+### 4. Thành viên thuộc danh sách miễn trừ
+- Bỏ qua hoàn toàn việc kiểm tra.
+- Không tạo bản ghi vi phạm.
 
-### 5. DM bị tắt
-- Không gửi DM
-- Vẫn kick bình thường
-- Log warning
+### 5. Thành viên tắt tin nhắn riêng
+- Không gửi được tin nhắn riêng.
+- Vẫn kick theo quy trình.
+- Ghi nhật ký cảnh báo.
 
-### 6. Duplicate violation
-- Không tạo mới
-- Update `notifiedAt` array
-
----
-
-## Testing Checklist
-
-- [ ] Member mới join với tên sai → Tạo violation
-- [ ] Member join với tên đúng → Không tạo violation
-- [ ] Member đổi từ sai → đúng → Xóa violation
-- [ ] Member đổi từ đúng → sai → Tạo violation
-- [ ] Scheduler kick member hết hạn 48h
-- [ ] `/rename` với tên hợp lệ → Update thành công
-- [ ] `/rename` với tên không hợp lệ → Hiện lỗi
-- [ ] Exception user bypass validation
-- [ ] Button mở modal đúng
-- [ ] DM thông báo kick gửi được
+### 6. Vi phạm bị ghi nhận trùng
+- Không tạo bản ghi mới.
+- Cập nhật mảng `notifiedAt`.
 
 ---
 
-*Cập nhật lần cuối: 2026-10-18*
+## Danh sách kiểm tra
+
+- [ ] Thành viên mới tham gia với tên sai → Tạo bản ghi vi phạm.
+- [ ] Thành viên tham gia với tên đúng → Không tạo bản ghi vi phạm.
+- [ ] Thành viên đổi tên sai thành đúng → Xóa bản ghi vi phạm.
+- [ ] Thành viên đổi tên đúng thành sai → Tạo bản ghi vi phạm.
+- [ ] Scheduler kick thành viên khi vi phạm quá hạn 48 giờ.
+- [ ] `/rename` với tên hợp lệ → Cập nhật thành công.
+- [ ] `/rename` với tên không hợp lệ → Hiển thị lỗi.
+- [ ] Thành viên được miễn trừ → Bỏ qua kiểm tra.
+- [ ] Nút mở đúng biểu mẫu.
+- [ ] Gửi được tin nhắn riêng thông báo kick.
+
+---
+
+*Cập nhật lần cuối: 2026-10-22*

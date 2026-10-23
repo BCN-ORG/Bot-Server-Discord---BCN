@@ -1,24 +1,26 @@
-# System Monitoring
+# Theo dõi thông tin hệ thống
 
-The system monitoring feature returns RAM and battery readings through
-`GET /api/system`. The route is registered in `src/routes/index.js` and
-implemented in `src/routes/systemRoutes.js`.
+Tính năng theo dõi hệ thống cung cấp thông tin RAM và pin qua
+`GET /api/system`. Tuyến API được đăng ký trong `src/routes/index.js` và xử lý
+tại `src/routes/systemRoutes.js`.
 
-## Platform support
+## Nền tảng được hỗ trợ
 
-The route collects device readings only when it detects Android or Termux.
-Other platforms receive HTTP `501` rather than running platform-specific
-commands.
+Tuyến API chỉ lấy thông tin thiết bị khi phát hiện hệ điều hành Android hoặc
+môi trường Termux. Trên nền tảng khác, API trả về HTTP `501` và không chạy các
+lệnh dành riêng cho nền tảng.
 
-## Data sources
+## Nguồn dữ liệu
 
-- Battery: `termux-battery-status`. Install the `termux-api` package and the
-  Termux:API Android application to enable this reading.
-- Memory: `free -m`; total, used, free memory and usage percentage are returned in MB.
-- Temperature: battery temperature from `termux-battery-status`.
+- **Pin:** lệnh `termux-battery-status`. Cần cài gói `termux-api` và ứng dụng
+  Termux:API trên Android để lấy dữ liệu này.
+- **Bộ nhớ:** lệnh `free -m`; API trả về tổng dung lượng, dung lượng đã dùng,
+  dung lượng còn trống và tỷ lệ sử dụng theo MB.
+- **Nhiệt độ:** nhiệt độ pin lấy từ `termux-battery-status`.
 
-Commands run with a timeout. A missing command or invalid output makes that
-reading `null`; the other readings are still returned.
+Các lệnh được chạy với thời hạn chờ giới hạn. Nếu thiếu lệnh hoặc dữ liệu trả
+về không hợp lệ, chỉ số tương ứng có giá trị `null`; các chỉ số khác vẫn được
+trả về bình thường.
 
-See [the API reference](../../api/internal/SYSTEM_API.md) for the endpoint path,
-response format, and HTTP status codes.
+Xem [tài liệu API](../../api/internal/SYSTEM_API.md) để biết đường dẫn, định
+dạng phản hồi và các mã trạng thái HTTP.

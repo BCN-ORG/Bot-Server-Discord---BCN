@@ -62,6 +62,11 @@ export async function execute(interaction, client) {
         value: `**${preview.totalCoinsNeeded}** coins`, 
         inline: true 
       },
+      {
+        name: '🧾 Lương cố định trong tổng',
+        value: `**${preview.fixedSalaryCoins}** coins`,
+        inline: true
+      },
       { 
         name: '🏦 Số dư hiện tại', 
         value: `**${preview.currentBalance}** coins`, 
@@ -89,7 +94,7 @@ export async function execute(interaction, client) {
     if (preview.breakdown && preview.breakdown.length > 0) {
       const breakdownText = preview.breakdown
         .slice(0, 10)
-        .map(item => `• ${item.username}: **${item.amount}** coins`)
+        .map(item => `• ${item.username}: **${item.amount}** coins${item.fixedSalaryAmount ? ` (cố định: ${item.fixedSalaryAmount})` : ''}`)
         .join('\n');
       
       const moreText = preview.breakdown.length > 10 

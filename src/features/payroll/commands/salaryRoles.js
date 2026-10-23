@@ -126,7 +126,7 @@ async function handleList(interaction) {
 
   embed.addFields({ 
     name: 'Luu y', 
-    value: 'Chi thanh vien co it nhat mot trong cac role tren moi duoc tra luong' 
+    value: 'Role trong danh sach nay hoac role duoc cau hinh tai /salary-simple-role deu co the du dieu kien nhan luong'
   });
   embed.setTimestamp();
 

@@ -4,7 +4,12 @@
  */
 
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { getAllCoefficients } from '../../../database/payroll.js';
+import {
+  getAllCoefficients,
+  getAllEligibleRoles,
+  getAllSimpleRoleSalaries
+} from '../../../database/payroll.js';
+import { calculateMemberSalary } from '../services/salaryCalculation.js';
 
 /**
  * Dinh nghia lenh /salary-check
@@ -12,48 +17,6 @@ import { getAllCoefficients } from '../../../database/payroll.js';
 export const data = new SlashCommandBuilder()
   .setName('salary-check')
   .setDescription('Xem lương bạn sẽ nhận cho kỳ này');
-
-/**
- * Tinh luong cua user
- * @param {GuildMember} member 
- * @param {Array} coefficients 
- */
-function calculateMemberSalary(member, coefficients) {
-  // Tao map he so
-  const coefficientMap = new Map();
-  for (const coef of coefficients) {
-    coefficientMap.set(coef.roleId, coef.coefficient);
-  }
-
-  // Lay TAT CA roles user co (tru @everyone va bot roles)
-  const userRoles = [];
-  let totalCoefficient = 0;
-
-  for (const [roleId, role] of member.roles.cache) {
-    // Bo qua @everyone role
-    if (role.id === member.guild.id) continue;
-    // Bo qua managed roles (bot roles)
-    if (role.managed) continue;
-
-    const coefficient = coefficientMap.get(roleId) ?? 1; // Mac dinh = 1
-    totalCoefficient += coefficient;
-    userRoles.push({
-      roleId: role.id,
-      roleName: role.name,
-      coefficient
-    });
-  }
-
-  // Cap at 100
-  const finalAmount = Math.min(totalCoefficient, 100);
-
-  return {
-    eligibleRoles: userRoles,
-    totalCoefficient,
-    finalAmount,
-    isCapped: totalCoefficient > 100
-  };
-}
 
 /**
  * Xu ly lenh /salary-check
@@ -74,11 +37,27 @@ export async function execute(interaction) {
       return;
     }
 
-    // Lay bang he so
-    const coefficients = await getAllCoefficients();
-
-    // Tinh luong cua user (tat ca roles)
-    const salary = calculateMemberSalary(member, coefficients);
+    const [coefficients, eligibleRoles, fixedRoleSalaries] = await Promise.all([
+      getAllCoefficients(),
+      getAllEligibleRoles(),
+      getAllSimpleRoleSalaries()
+    ]);
+    const payableRoleIds = new Set([
+      ...eligibleRoles.map(role => role.roleId),
+      ...fixedRoleSalaries.map(role => role.roleId)
+    ]);
+    const hasPayableRole = member.roles.cache.some(role => payableRoleIds.has(role.id));
+    const hasCoefficientEligibility = member.roles.cache.some(role =>
+      eligibleRoles.some(eligibleRole => eligibleRole.roleId === role.id)
+    );
+    const coefficientMap = new Map(coefficients.map(item => [item.roleId, item.coefficient]));
+    const fixedSalaryMap = new Map(fixedRoleSalaries.map(item => [item.roleId, item.amount]));
+    const salary = calculateMemberSalary(
+      member,
+      coefficientMap,
+      fixedSalaryMap,
+      hasCoefficientEligibility
+    );
 
     // Tao embed
     const embed = new EmbedBuilder()
@@ -86,45 +65,57 @@ export async function execute(interaction) {
       .setDescription(`Dự kiến lương cho kỳ tiếp theo`)
       .setThumbnail(member.user.displayAvatarURL());
 
-    if (salary.eligibleRoles.length === 0) {
-      // User khong co role nao (chi co @everyone)
+    if (!hasPayableRole) {
       embed.setColor('#ff9900');
       embed.addFields({
-        name: '⚠️ Không có role',
-        value: 'Bạn chưa có role nào trong server.\nLiên hệ admin để được cấp role.',
+        name: '⚠️ Chưa đủ điều kiện nhận lương',
+        value: 'Bạn chưa có role nào được cấu hình nhận lương.\nLiên hệ admin để được cấp role.',
         inline: false
       });
     } else {
       // User co role duoc tra luong
       embed.setColor('#00b300');
 
-      // Liet ke cac role va he so
-      const rolesList = salary.eligibleRoles
+      const coefficientList = salary.coefficientRoles
         .map(r => `• <@&${r.roleId}>: **${r.coefficient}** coin`)
         .join('\n');
+      const fixedRolesList = salary.fixedRoles
+        .map(role => `• <@&${role.roleId}>: **${role.amount}** coin cố định`)
+        .join('\n');
 
-      embed.addFields(
-        {
-          name: '🎭 Các role của bạn được trả lương',
-          value: rolesList,
+      if (coefficientList) {
+        embed.addFields({
+          name: '🎭 Lương theo hệ số',
+          value: coefficientList,
           inline: false
-        },
-        {
-          name: '📊 Tổng hệ số',
-          value: `**${salary.totalCoefficient}** coins`,
-          inline: true
-        },
-        {
-          name: '💵 Tổng lương nhận được',
-          value: `**${salary.finalAmount}** coins`,
-          inline: true
-        }
-      );
+        });
+      }
+      if (fixedRolesList) {
+        embed.addFields({
+          name: '💵 Lương cố định theo role',
+          value: fixedRolesList,
+          inline: false
+        });
+      }
+
+      embed.addFields({
+        name: '📊 Tổng hệ số',
+        value: `**${salary.coefficientTotal}** coins`,
+        inline: true
+      }, {
+        name: '🧾 Phần lương cố định được tính',
+        value: `**${salary.fixedSalaryIncluded}** coins`,
+        inline: true
+      }, {
+        name: '💰 Tổng lương nhận được',
+        value: `**${salary.amount}** coins`,
+        inline: true
+      });
 
       if (salary.isCapped) {
         embed.addFields({
           name: '⚠️ Lưu ý',
-          value: `Tổng hệ số vượt quá 100, đã được giới hạn xuống **100 coins** (giới hạn API)`,
+          value: 'Tổng lương vượt quá 100 coins nên đã được giới hạn theo giới hạn API.',
           inline: false
         });
       }

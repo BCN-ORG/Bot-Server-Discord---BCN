@@ -83,6 +83,7 @@ async function sendNotification(client, previewData, notificationRoleIds) {
     embed.addFields(
       { name: '👥 So thanh vien', value: previewData.memberCount.toString(), inline: true },
       { name: '💰 Tong coins can tra', value: previewData.totalCoinsNeeded.toString(), inline: true },
+      { name: '🧾 Luong co dinh trong tong', value: previewData.fixedSalaryCoins.toString(), inline: true },
       { name: '🏦 So du hien tai', value: previewData.currentBalance.toString(), inline: true }
     );
     

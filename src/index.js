@@ -12,14 +12,18 @@ import { handleMessageCreate } from './events/messageCreate.js';
 import {
   handleReactionRoleAdd,
   handleReactionRoleMemberRemove,
-  handleReactionRoleRemove
+  handleReactionRoleRemove,
+  initReactionRoleScheduler
 } from './features/reactionRoles/index.js';
 import { startViolationChecker } from './schedulers/violationChecker.js';
 import { connectMongoDB } from './database/mongodb.js';
 import { connectBCN } from './database/bcn.js';
 import { initPayrollScheduler, initNotificationScheduler } from './features/payroll/index.js';
+import { initTemporaryRoleScheduler } from './features/temporaryRoles/index.js';
 import apiRoutes from './routes/index.js';
 import { createApiKeyAuth } from './middleware/apiKeyAuth.js';
+import { handleGuildMemberKick } from './features/kickManager/kick.js';
+import { initCoinRandomScheduler } from './features/coinRandom/index.js';
 
 const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
 
@@ -97,6 +101,15 @@ client.once('ready', async () => {
   
   // Khoi dong notification scheduler
   await initNotificationScheduler(client);
+
+  // Start the temporary-role expiry/recovery scheduler.
+  await initTemporaryRoleScheduler(client);
+
+  // Start the reaction-role expiry scheduler.
+  await initReactionRoleScheduler(client);
+
+  // Start the coin-random event expiry scheduler.
+  await initCoinRandomScheduler(client);
   
   console.log('[INFO] Bot đang hoạt động!');
 });
@@ -115,6 +128,7 @@ client.on('messageCreate', handleMessageCreate);
 client.on('messageReactionAdd', handleReactionRoleAdd);
 client.on('messageReactionRemove', handleReactionRoleRemove);
 client.on('guildMemberRemove', handleReactionRoleMemberRemove);
+client.on('guildMemberRemove', handleGuildMemberKick);
 
 // Thiết lập xử lý tương tác
 setupInteractionHandlers(client);

@@ -1,42 +1,42 @@
-# Birthday Feature
+# Tính năng sinh nhật
 
-Hệ thống API để lấy danh sách members có sinh nhật theo ngày.
+Hệ thống API dùng để lấy danh sách thành viên có sinh nhật theo ngày.
 
 ---
 
 ## Tổng quan
 
-Birthday Feature cung cấp REST API endpoints để:
-- Lấy danh sách members có sinh nhật hôm nay
-- Lấy danh sách members có sinh nhật vào ngày cụ thể
-- Tự động detect timezone Việt Nam (Asia/Ho_Chi_Minh)
+Tính năng sinh nhật cung cấp các điểm cuối REST API để:
+- Lấy danh sách thành viên có sinh nhật hôm nay
+- Lấy danh sách thành viên có sinh nhật vào ngày cụ thể
+- Tự động nhận diện múi giờ Việt Nam (`Asia/Ho_Chi_Minh`)
 
 ---
 
-## Cấu trúc thư mục
+## Cấu trúc thư mục mã nguồn
 
 ```
 src/
 ├── configs/
-│   └── birthday.config.js         # Cấu hình feature
+│   └── birthday.config.js         # Cấu hình tính năng
 ├── controllers/
-│   └── birthdayController.js      # HTTP request handlers
+│   └── birthdayController.js      # Bộ xử lý yêu cầu HTTP
 ├── services/
-│   └── birthdayService.js         # Business logic
+│   └── birthdayService.js         # Xử lý nghiệp vụ
 ├── repositories/
-│   └── memberRepository.js        # Database queries
+│   └── memberRepository.js        # Truy vấn cơ sở dữ liệu
 ├── routes/
-│   ├── index.js                   # Main routes
-│   └── birthdayRoutes.js          # Birthday routes
+│   ├── index.js                   # Định tuyến chính
+│   └── birthdayRoutes.js          # Định tuyến tính năng sinh nhật
 └── database/
-    └── bcn.js                     # BCN database connection
+    └── bcn.js                     # Kết nối cơ sở dữ liệu BCN
 ```
 
 ---
 
-## Database Schema
+## Cấu trúc cơ sở dữ liệu
 
-### Collection: `BCN.members`
+### Bộ sưu tập `BCN.members`
 
 ```javascript
 {
@@ -55,22 +55,23 @@ src/
 
 ---
 
-## API Endpoints
+## Các điểm cuối API
 
-Birthday endpoints require the `X-API-Key` header. Configure one or more
-comma-separated keys with `API_KEYS` in `.env`. `/api/health` remains public.
+Các điểm cuối sinh nhật yêu cầu tiêu đề `X-API-Key`. Cấu hình một hoặc nhiều
+khóa, phân tách bằng dấu phẩy, qua `API_KEYS` trong `.env`. Điểm cuối
+`/api/health` vẫn được truy cập công khai.
 
 ### 1. GET `/api/birthdays/today`
 
-Lấy danh sách members có sinh nhật hôm nay (theo timezone VN).
+Lấy danh sách thành viên có sinh nhật hôm nay (theo múi giờ Việt Nam).
 
-**Example:**
+**Ví dụ:**
 ```bash
 curl http://localhost:3000/api/birthdays/today \
   -H "X-API-Key: $API_KEY"
 ```
 
-**Response:**
+**Phản hồi:**
 ```json
 {
   "success": true,
@@ -84,9 +85,9 @@ curl http://localhost:3000/api/birthdays/today \
 
 ### 2. POST `/api/birthdays/by-date`
 
-Lấy danh sách members có sinh nhật vào ngày cụ thể.
+Lấy danh sách thành viên có sinh nhật vào ngày cụ thể.
 
-**Example:**
+**Ví dụ:**
 ```bash
 curl -X POST http://localhost:3000/api/birthdays/by-date \
   -H "X-API-Key: $API_KEY" \
@@ -94,7 +95,7 @@ curl -X POST http://localhost:3000/api/birthdays/by-date \
   -d '{"date":"24/01"}'
 ```
 
-**Response:**
+**Phản hồi:**
 ```json
 {
   "success": true,
@@ -109,30 +110,30 @@ curl -X POST http://localhost:3000/api/birthdays/by-date \
 ## Luồng xử lý
 
 ```
-HTTP Request
+Yêu cầu HTTP
     ↓
-Route (birthdayRoutes.js)
+Định tuyến (birthdayRoutes.js)
     ↓
-Controller (birthdayController.js)
+Điều khiển (birthdayController.js)
     ↓
-Service (birthdayService.js)
+Dịch vụ (birthdayService.js)
     ↓
-Repository (memberRepository.js)
+Truy xuất dữ liệu (memberRepository.js)
     ↓
-Database (BCN.members)
+Cơ sở dữ liệu (BCN.members)
     ↓
-MongoDB Query: { dob: /^DD\/MM\// }
+Truy vấn MongoDB: { dob: /^DD\/MM\// }
     ↓
-Transform & Return
+Chuyển đổi và trả kết quả
 ```
 
 ---
 
-## Chi tiết từng layer
+## Chi tiết từng lớp xử lý
 
-### 1. Routes Layer (`birthdayRoutes.js`)
+### 1. Lớp định tuyến (`birthdayRoutes.js`)
 
-Định nghĩa endpoints và mapping tới controllers.
+Định nghĩa điểm cuối và ánh xạ tới bộ điều khiển.
 
 ```javascript
 router.get('/today', birthdayController.getTodayBirthdays);
@@ -141,18 +142,18 @@ router.post('/by-date', birthdayController.getBirthdaysByDate);
 
 ---
 
-### 2. Controller Layer (`birthdayController.js`)
+### 2. Lớp bộ điều khiển (`birthdayController.js`)
 
-Xử lý HTTP requests, validation, và trả về responses.
+Xử lý yêu cầu HTTP, kiểm tra dữ liệu đầu vào và trả về phản hồi.
 
-**Responsibilities:**
-- Parse request body/params
-- Validate input
-- Call service layer
-- Format response
-- Handle errors
+**Nhiệm vụ:**
+- Đọc nội dung và tham số của yêu cầu
+- Kiểm tra dữ liệu đầu vào
+- Gọi lớp dịch vụ
+- Định dạng phản hồi
+- Xử lý lỗi
 
-**Example:**
+**Ví dụ:**
 ```javascript
 export async function getTodayBirthdays(req, res) {
   try {
@@ -170,22 +171,22 @@ export async function getTodayBirthdays(req, res) {
 
 ---
 
-### 3. Service Layer (`birthdayService.js`)
+### 3. Lớp dịch vụ (`birthdayService.js`)
 
-Business logic và data transformation.
+Xử lý logic nghiệp vụ và chuyển đổi dữ liệu.
 
-**Responsibilities:**
-- Business rules
-- Data validation
-- Call repository
-- Transform data format
+**Nhiệm vụ:**
+- Áp dụng quy tắc nghiệp vụ
+- Kiểm tra dữ liệu
+- Gọi lớp truy xuất dữ liệu
+- Chuyển đổi định dạng dữ liệu
 
-**Example:**
+**Ví dụ:**
 ```javascript
 export async function getTodayBirthdays() {
   const members = await memberRepository.getMembersWithBirthdayToday();
   
-  // Transform: _id ObjectId → string
+  // Chuyển đổi: _id ObjectId → chuỗi
   return members.map(member => ({
     id: member._id.toString(),
     ...member
@@ -195,16 +196,16 @@ export async function getTodayBirthdays() {
 
 ---
 
-### 4. Repository Layer (`memberRepository.js`)
+### 4. Lớp truy xuất dữ liệu (`memberRepository.js`)
 
-Database queries và data access.
+Thực hiện truy vấn và truy cập cơ sở dữ liệu.
 
-**Responsibilities:**
-- MongoDB queries
-- Database operations
-- Return raw data
+**Nhiệm vụ:**
+- Thực hiện truy vấn MongoDB
+- Thao tác với cơ sở dữ liệu
+- Trả về dữ liệu gốc
 
-**Example:**
+**Ví dụ:**
 ```javascript
 export async function getMembersByBirthday(dateString) {
   const db = getBCNDatabase();
@@ -218,31 +219,31 @@ export async function getMembersByBirthday(dateString) {
 
 ---
 
-### 5. Database Layer (`bcn.js`)
+### 5. Lớp cơ sở dữ liệu (`bcn.js`)
 
-MongoDB connection management.
+Quản lý kết nối MongoDB.
 
-**Responsibilities:**
-- Connect to BCN database
-- Export database instance
-- Handle connection errors
+**Nhiệm vụ:**
+- Kết nối tới cơ sở dữ liệu BCN
+- Cung cấp đối tượng kết nối cơ sở dữ liệu
+- Xử lý lỗi kết nối
 
 ---
 
-## Query Logic
+## Cách truy vấn dữ liệu
 
-### Date Matching với Regex
+### Đối chiếu ngày bằng biểu thức chính quy
 
-**Input:** `"24/01"` (DD/MM)  
-**Database:** `"24/01/2006"`, `"24/01/2005"`, ... (DD/MM/YYYY)
+**Đầu vào:** `"24/01"` (DD/MM)
+**Dữ liệu trong cơ sở dữ liệu:** `"24/01/2006"`, `"24/01/2005"`, ... (DD/MM/YYYY)
 
-**Query:**
+**Truy vấn:**
 ```javascript
 const regex = new RegExp(`^24/01/`);
 db.collection('members').find({ dob: { $regex: regex } });
 ```
 
-**Matches:**
+**Kết quả khớp:**
 - ✅ `"24/01/2006"`
 - ✅ `"24/01/2005"`
 - ✅ `"24/01/2000"`
@@ -251,9 +252,9 @@ db.collection('members').find({ dob: { $regex: regex } });
 
 ---
 
-## Timezone Handling
+## Xử lý múi giờ
 
-### Get Current Date in Vietnam
+### Lấy ngày hiện tại tại Việt Nam
 
 ```javascript
 const now = new Date();
@@ -266,26 +267,26 @@ const month = String(vietnamDate.getMonth() + 1).padStart(2, '0');
 const dateString = `${day}/${month}`;
 ```
 
-**Example:**
-- Server time: `2026-10-19 03:00 UTC` (Thứ Hai sáng)
-- Vietnam time: `2026-10-19 10:00 +07` (Thứ Hai sáng)
+**Ví dụ:**
+- Giờ máy chủ: `2026-10-19 03:00 UTC` (sáng thứ Hai)
+- Giờ Việt Nam: `2026-10-19 10:00 +07` (sáng thứ Hai)
 - `dateString`: `"19/10"`
 
 ---
 
-## Error Handling
+## Xử lý lỗi
 
-### Validation Errors (400)
+### Lỗi dữ liệu đầu vào (400)
 
 ```javascript
-// Missing date field
+// Thiếu trường date
 {
   "success": false,
   "error": "Bad request",
   "message": "Field \"date\" is required"
 }
 
-// Invalid format
+// Định dạng không hợp lệ
 {
   "success": false,
   "error": "Bad request",
@@ -293,7 +294,7 @@ const dateString = `${day}/${month}`;
 }
 ```
 
-### Server Errors (500)
+### Lỗi máy chủ (500)
 
 ```javascript
 {
@@ -305,22 +306,22 @@ const dateString = `${day}/${month}`;
 
 ---
 
-## Testing
+## Kiểm thử
 
-### Manual Test với curl
+### Kiểm thử thủ công bằng curl
 
 ```bash
-# Test today's birthdays
+# Kiểm tra sinh nhật hôm nay
 curl http://localhost:3000/api/birthdays/today \
   -H "X-API-Key: $API_KEY"
 
-# Test specific date
+# Kiểm tra một ngày cụ thể
 curl -X POST http://localhost:3000/api/birthdays/by-date \
   -H "X-API-Key: $API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"date":"24/01"}'
 
-# Test invalid format (should return 400)
+# Kiểm tra định dạng sai (dự kiến trả về 400)
 curl -X POST http://localhost:3000/api/birthdays/by-date \
   -H "X-API-Key: $API_KEY" \
   -H "Content-Type: application/json" \
@@ -329,9 +330,9 @@ curl -X POST http://localhost:3000/api/birthdays/by-date \
 
 ---
 
-## Configuration
+## Cấu hình
 
-File: `src/configs/birthday.config.js`
+Tệp: `src/configs/birthday.config.js`
 
 ```javascript
 export const BIRTHDAY_CONFIG = {
@@ -344,60 +345,60 @@ export const BIRTHDAY_CONFIG = {
 
 ---
 
-## Environment Variables
+## Biến môi trường
 
 Không cần thêm biến môi trường mới. Sử dụng:
 
 ```bash
-# From atlas-credentials.env
+# Nạp từ atlas-credentials.env
 MONGODB_URI=mongodb+srv://...
 ```
 
 ---
 
-## Monitoring & Logging
+## Theo dõi và ghi nhật ký
 
-### Logs Example
+### Ví dụ nhật ký
 
 ```
-[BCN] Connecting to BCN database...
-[BCN] Connected successfully to BCN database
-[MemberRepo] Getting members with birthday today: 19/10
-[MemberRepo] Found 2 members with birthday 19/10
-[BirthdayService] Error getting today birthdays: ...
+[BCN] Đang kết nối tới cơ sở dữ liệu BCN...
+[BCN] Đã kết nối thành công tới cơ sở dữ liệu BCN
+[MemberRepo] Đang lấy danh sách thành viên có sinh nhật hôm nay: 19/10
+[MemberRepo] Tìm thấy 2 thành viên có sinh nhật ngày 19/10
+[BirthdayService] Lỗi khi lấy danh sách sinh nhật hôm nay: ...
 ```
 
 ---
 
-## Future Improvements
+## Hướng phát triển trong tương lai
 
-1. **Caching:** Cache results trong 1 ngày
-2. **Pagination:** Thêm limit/offset cho kết quả lớn
-3. **Discord Integration:** Tự động gửi thông báo sinh nhật
-4. **Statistics:** Endpoint thống kê sinh nhật theo tháng
-5. **Birthday Reminders:** Scheduler gửi reminder trước N ngày
+1. **Bộ nhớ đệm:** Lưu kết quả trong một ngày
+2. **Phân trang:** Thêm limit/offset cho kết quả lớn
+3. **Tích hợp Discord:** Tự động gửi thông báo sinh nhật
+4. **Thống kê:** Thêm điểm cuối thống kê sinh nhật theo tháng
+5. **Nhắc sinh nhật:** Lập lịch gửi nhắc trước một số ngày
 
 ---
 
-## Troubleshooting
+## Khắc phục sự cố
 
-### Issue: "Database not connected"
+### Sự cố: "Database not connected"
 
-**Solution:**
+**Cách khắc phục:**
 ```javascript
-// Ensure connectBCN() is called in index.js
+// Đảm bảo connectBCN() được gọi trong index.js
 await connectBCN();
 ```
 
-### Issue: "No members found"
+### Sự cố: "No members found"
 
-**Possible causes:**
-- Database BCN không có collection `members`
-- Field `dob` không đúng format DD/MM/YYYY
-- Timezone khác nhau giữa server và VN
+**Nguyên nhân có thể:**
+- Cơ sở dữ liệu BCN không có collection `members`.
+- Trường `dob` không đúng định dạng DD/MM/YYYY.
+- Múi giờ máy chủ khác với múi giờ Việt Nam.
 
 ---
 
-## API Documentation
+## Tài liệu API
 
-Xem chi tiết: [`doc/api/BIRTHDAY_API.md`](../../api/BIRTHDAY_API.md)
+Xem chi tiết tại [tài liệu API sinh nhật](../../api/internal/BIRTHDAY_API.md).

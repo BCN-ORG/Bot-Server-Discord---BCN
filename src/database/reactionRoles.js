@@ -11,6 +11,7 @@ async function ensureIndexes() {
   if (!indexPromise) {
     indexPromise = getCollection()
       .createIndex({ guildId: 1, messageId: 1, roleId: 1 }, { unique: true })
+      .then(() => getCollection().createIndex({ 'claimants.expireAt': 1 }))
       .catch((error) => {
         indexPromise = null;
         throw error;
@@ -35,6 +36,7 @@ export async function saveReactionRoleConfig(config) {
         emojiKey: config.emojiKey,
         emojiLabel: config.emojiLabel,
         limit: config.limit,
+        durationDays: config.durationDays ?? null,
         updatedAt: now
       },
       $setOnInsert: {
@@ -56,6 +58,36 @@ export async function getReactionRoleConfigsForMessage(guildId, messageId) {
 
 export async function getReactionRoleConfigsForGuild(guildId) {
   return getCollection().find({ guildId }).sort({ messageId: 1, roleId: 1 }).toArray();
+}
+
+export async function getExpiredReactionRoleClaims(now = new Date()) {
+  const configs = await getCollection()
+    .find({ 'claimants.expireAt': { $lte: now } })
+    .toArray();
+  return configs.flatMap(config => (
+    (config.claimants || [])
+      .filter(claimant => claimant.expireAt && claimant.expireAt <= now)
+      .map(claimant => ({ ...config, claimant }))
+  ));
+}
+
+export async function removeExpiredReactionRoleClaim(config, userId, now = new Date()) {
+  const result = await getCollection().updateOne(
+    {
+      guildId: config.guildId,
+      messageId: config.messageId,
+      roleId: config.roleId
+    },
+    {
+      $pull: {
+        claimants: {
+          userId,
+          expireAt: { $lte: now }
+        }
+      }
+    }
+  );
+  return result.modifiedCount === 1;
 }
 
 export async function tryAddReactionRoleClaim(config, claimant) {

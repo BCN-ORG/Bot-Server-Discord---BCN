@@ -1,17 +1,20 @@
-# Hệ Thống Trả Lương Tự Động (Payroll System)
+# Hệ thống trả lương tự động
 
 ## Tổng quan
 
-Hệ thống trả lương tự động cho Discord Bot cho phép tự động trả coin hàng tuần cho các thành viên có role được cấu hình. Hệ thống tích hợp với Payroll API của bot "Viện kiểm sát" để thực hiện giao dịch.
+Hệ thống trả lương tự động cho bot Discord giúp trả coin hàng tuần cho thành viên
+có role được cấu hình. Hệ thống tích hợp với API trả lương của bot "Viện kiểm
+sát" để thực hiện giao dịch.
 
 ### Đặc điểm chính
 
-- **Tự động**: Chạy theo lịch hàng tuần với minute precision (mặc định: Thứ Hai 00:00)
+- **Tự động**: Chạy theo lịch hàng tuần với độ chính xác đến từng phút (mặc định: Thứ Hai 00:00)
 - **Linh hoạt**: Quản trị viên có thể cấu hình role, hệ số lương và lịch trình
-- **An toàn**: Chống trả lương trùng lặp, retry tự động, logging đầy đủ
-- **Thông báo trước**: Hệ thống notification tự động báo trước khi trả lương
-- **Quản lý nợ**: Tự động ghi nợ khi thiếu coins, có lệnh trả nợ sau
-- **Kiểm tra**: Lệnh thủ công để test và trả lương ngoài lịch
+- **Lương cố định theo role**: Có thể cộng mức lương cố định cho role vào cùng kỳ trả lương tự động
+- **An toàn**: Chống trả lương trùng lặp, tự động thử lại và ghi nhật ký đầy đủ
+- **Thông báo trước**: Hệ thống tự động thông báo trước khi trả lương
+- **Quản lý nợ**: Tự động ghi nợ khi thiếu coin, có lệnh trả nợ sau
+- **Kiểm tra**: Có lệnh thủ công để kiểm thử và trả lương ngoài lịch
 
 ---
 
@@ -19,10 +22,10 @@ Hệ thống trả lương tự động cho Discord Bot cho phép tự động t
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      Discord Bot                             │
+│                        Bot Discord                            │
 │                                                              │
 │  ┌────────────────┐         ┌──────────────────┐           │
-│  │   Scheduler    │────────►│ Payroll Service  │           │
+│  │ Tác vụ định kỳ │────────►│ Dịch vụ trả lương│           │
 │  │  (node-cron)   │         │                  │           │
 │  └────────────────┘         └──────────────────┘           │
 │         │                            │                      │
@@ -45,8 +48,8 @@ Hệ thống trả lương tự động cho Discord Bot cho phép tự động t
                                       │
                                       ▼
                            ┌──────────────────────┐
-                           │   Payroll API        │
-                           │ (Viện kiểm sát bot)  │
+                           │ API trả lương        │
+                           │ (bot Viện kiểm sát)  │
                            └──────────────────────┘
 ```
 
@@ -57,162 +60,187 @@ Hệ thống trả lương tự động cho Discord Bot cho phép tự động t
 ### Luồng trả lương tự động
 
 ```
-1. SCHEDULER TRIGGER
-   └─► Cron job kích hoạt vào thời gian đã cấu hình
+1. KÍCH HOẠT LẬP LỊCH
+   └─► Tác vụ cron chạy vào thời gian đã cấu hình
 
-2. GET CONFIGURATION
-   ├─► Lấy danh sách role đủ điều kiện từ DB (salary_eligible_roles)
-   └─► Lấy bảng hệ số lương từ DB (salary_coefficients)
+2. LẤY CẤU HÌNH
+   ├─► Lấy role đủ điều kiện theo hệ số và role lương cố định
+   ├─► Lấy bảng hệ số từ DB (salary_coefficients)
+   └─► Lấy mức lương cố định từ DB (salary_simple_roles)
 
-3. GET MEMBERS
-   ├─► Fetch đầy đủ guild members qua Discord API (không chỉ dùng cache)
-   ├─► Lọc members đang có ít nhất một role đủ điều kiện
-   └─► Deduplicate theo Discord user ID
+3. LẤY DANH SÁCH THÀNH VIÊN
+   ├─► Lấy đầy đủ thành viên máy chủ qua Discord API (không chỉ dùng bộ nhớ đệm)
+   ├─► Lọc thành viên có role đủ điều kiện theo hệ số hoặc lương cố định
+   └─► Loại bỏ trùng lặp theo Discord user ID
 
-   Trước khi phát:
+   Trước khi trả lương:
    ├─► Đọc salary_history của kỳ tuần hiện tại (YYYY-Www)
-   └─► Bỏ qua user đã có bản ghi SUCCESS
+   └─► Bỏ qua thành viên đã có bản ghi SUCCESS
 
-4. PROCESS EACH MEMBER
-   ├─► Lọc các role đủ điều kiện mà user có
+4. XỬ LÝ TỪNG THÀNH VIÊN
+   ├─► Lọc các role đủ điều kiện mà thành viên đang có
    │   
    ├─► Tính tổng lương:
-   │   ├─ Duyệt tất cả role user đang có
-   │   ├─ Dùng hệ số trong salary_coefficients nếu có, nếu không thì mặc định = 1
-   │   ├─ Tổng = coefficient_role_1 + coefficient_role_2 + ...
-   │   └─ Cap tối đa 100 coins
+   │   ├─ A = tổng hệ số của tất cả role nếu thành viên có role trong salary_eligible_roles
+   │   ├─ B = tổng lương cố định của các role trong salary_simple_roles
+   │   ├─ Chỉ có role lương cố định thì nhận B, không tự phát sinh A
+   │   ├─ Role chưa cấu hình hệ số mặc định bằng 1 khi tính A
+   │   ├─ Tổng trước giới hạn = A + B
+   │   └─ Giới hạn tối đa 100 coin
    │
    ├─► Chọn role đầu tiên để gọi API
    │
    ├─► Gọi API trả lương:
-   │   ├─ POST /transfer với userId dạng Discord ID số (chuỗi), roleId, amount
-   │   ├─ Retry 3 lần nếu 409/503
-   │   └─ Nhận response
+   │   ├─ POST /transfer với userId là Discord ID dạng chuỗi số, roleId và amount
+   │   ├─ Thử lại 3 lần nếu nhận 409/503
+   │   └─ Nhận phản hồi
    │
    └─► Lưu lịch sử vào DB (salary_history)
-       ├─ SUCCESS: Trả thành công
+       ├─ SUCCESS: Trả lương thành công
        ├─ DUPLICATE: Đã trả trong kỳ tuần này
-       ├─ NO_ROLE / NOT_IN_SERVER: bỏ qua member, tiếp tục
-       ├─ FAILED: API không chuyển được tiền, dừng đợt phát
-       └─ ERROR: Network/system error, dừng đợt phát
+       ├─ NO_ROLE / NOT_IN_SERVER: Bỏ qua thành viên và tiếp tục
+       ├─ FAILED: API không chuyển được tiền; dừng đợt trả lương
+       └─ ERROR: Lỗi mạng/hệ thống; dừng đợt trả lương
 
-5. SUMMARY
-   └─► Log và trả về tổng kết: total, success, failed, skipped, alreadyPaid, unprocessed
+5. TỔNG KẾT
+   └─► Ghi nhật ký và trả về: total, success, failed, skipped, alreadyPaid, unprocessed
 ```
 
-Payroll cần bật `GuildMembers` intent trong code và **Server Members Intent** trong Discord Developer Portal để fetch đầy đủ member, bao gồm người offline/chưa có trong cache. Nếu fetch danh sách member thất bại, đợt phát dừng thay vì xử lý danh sách không đầy đủ.
+Hệ thống trả lương cần bật intent `GuildMembers` trong mã nguồn và
+**Server Members Intent** trong Discord Developer Portal để lấy đầy đủ thành
+viên, bao gồm người đang ngoại tuyến hoặc chưa có trong bộ nhớ đệm. Nếu không
+lấy được danh sách thành viên, đợt trả lương sẽ dừng thay vì xử lý danh sách
+không đầy đủ.
 
-### Xử lý deduplicate
+### Loại bỏ thành viên trùng lặp
 
-User có nhiều role:
-- **Chỉ xử lý 1 lần** trong mỗi đợt trả lương
-- **Tính tổng hệ số** của TẤT CẢ các role user đang có; role chưa cấu hình hệ số tính là 1
-- **Chọn role đầu tiên** để gọi API (API chỉ nhận 1 role/lần)
+Thành viên có nhiều role:
+- **Chỉ xử lý một lần** trong mỗi đợt trả lương
+- **Tính lương** bằng tổng hệ số của các role thường và mức cố định của các role được cấu hình
+- **Chọn role đầu tiên** để gọi API (API chỉ nhận một role mỗi lần)
 
 **Ví dụ:**
 ```
-User A có role: "Sao đỏ" (hệ số 2), "Sao vàng" (hệ số 3), "Thành viên" (chưa cấu hình)
-→ Tổng lương: 2 + 3 + 1 = 6 coins
-→ Gọi API với roleId của "Sao đỏ" (role đầu tiên)
-→ Nếu đã trả trong tuần này: API trả về duplicate=true, không trừ tiền
+Thành viên A có role: "Sao đỏ" (hệ số 2), "Sao vàng" (lương cố định 10), "Thành viên" (chưa cấu hình)
+trong đó "Sao đỏ" thuộc `salary_eligible_roles`
+→ A = tổng hệ số các role = 2 + 1 + 1 = 4 coin
+→ B = lương cố định của "Sao vàng" = 10 coin
+→ Tổng lương = A + B = 14 coin
+→ Gọi API bằng roleId của "Sao đỏ" (role đầu tiên)
+→ Nếu đã trả trong tuần này: API trả duplicate=true, không trừ tiền
 ```
 
 ---
 
-## Schema Database
+## Cấu trúc cơ sở dữ liệu
 
-### Collection: `salary_coefficients`
+### Bộ sưu tập `salary_coefficients`
 
 Lưu hệ số lương của từng role.
 
-| Field | Type | Description |
+| Trường | Kiểu dữ liệu | Mô tả |
 |-------|------|-------------|
 | `roleId` | string | Discord role ID (snowflake) |
 | `roleName` | string | Tên role (để hiển thị) |
 | `coefficient` | number | Hệ số lương (1-100) |
 | `updatedAt` | Date | Thời điểm cập nhật |
-| `updatedBy` | string | User ID người cập nhật |
+| `updatedBy` | string | ID người dùng thực hiện cập nhật |
 
-**Index**: `roleId` (unique)
+**Chỉ mục**: `roleId` (duy nhất)
 
 ---
 
-### Collection: `salary_eligible_roles`
+### Bộ sưu tập `salary_simple_roles`
 
-Danh sách role được trả lương.
+Lưu mức lương cố định cho từng role. Thành viên có role này đủ điều kiện nhận phần lương cố định **B**. Phần lương hệ số **A** chỉ áp dụng nếu thành viên có role thuộc `salary_eligible_roles`; khi đủ điều kiện, A vẫn tính theo tất cả role như quy tắc hiện tại. Tổng lương trước giới hạn là **A + B**, tối đa 100 coin theo giới hạn API.
 
-| Field | Type | Description |
+| Trường | Kiểu dữ liệu | Mô tả |
 |-------|------|-------------|
 | `roleId` | string | Discord role ID |
-| `roleName` | string | Tên role |
-| `addedAt` | Date | Thời điểm thêm |
-| `addedBy` | string | User ID người thêm |
-
-**Index**: `roleId` (unique)
+| `roleName` | string | Tên role để hiển thị |
+| `amount` | number | Mức lương cố định cho mỗi kỳ |
+| `updatedAt` | Date | Thời điểm cập nhật |
+| `updatedBy` | string | ID người cập nhật |
 
 ---
 
-### Collection: `salary_config`
+### Bộ sưu tập `salary_eligible_roles`
 
-Cấu hình lịch trả lương (singleton document).
+Danh sách role đủ điều kiện nhận lương theo hệ số. Role được cấu hình tại `salary_simple_roles` cũng tự đủ điều kiện nhận lương.
 
-| Field | Type | Description |
+| Trường | Kiểu dữ liệu | Mô tả |
 |-------|------|-------------|
-| `_id` | string | `"schedule"` (fixed) |
-| `dayOfWeek` | number | 0=Sunday, 1=Monday, ..., 6=Saturday |
+| `roleId` | string | ID role Discord |
+| `roleName` | string | Tên role |
+| `addedAt` | Date | Thời điểm thêm |
+| `addedBy` | string | ID người dùng thực hiện thao tác thêm |
+
+**Chỉ mục**: `roleId` (duy nhất)
+
+---
+
+### Bộ sưu tập `salary_config`
+
+Cấu hình lịch trả lương (một tài liệu duy nhất).
+
+| Trường | Kiểu dữ liệu | Mô tả |
+|-------|------|-------------|
+| `_id` | string | `"schedule"` (giá trị cố định) |
+| `dayOfWeek` | number | 0=Chủ nhật, 1=Thứ Hai, ..., 6=Thứ Bảy |
 | `hour` | number | Giờ chạy (0-23) |
 | `timezone` | string | `"Asia/Ho_Chi_Minh"` |
 | `updatedAt` | Date | Thời điểm cập nhật |
-| `updatedBy` | string | User ID người cập nhật |
+| `updatedBy` | string | ID người dùng thực hiện cập nhật |
 
-**Default**: Monday (1) at 00:00
+**Mặc định**: Thứ Hai (1) lúc 00:00
 
 ---
 
-### Collection: `salary_history`
+### Bộ sưu tập `salary_history`
 
 Lịch sử trả lương.
 
-| Field | Type | Description |
+| Trường | Kiểu dữ liệu | Mô tả |
 |-------|------|-------------|
-| `guildId` | string | Discord guild ID |
-| `userId` | string | Discord user ID chỉ gồm chữ số; gửi `member.user.id`, không gửi username |
+| `guildId` | string | ID máy chủ Discord |
+| `userId` | string | ID Discord của thành viên, chỉ gồm chữ số; gửi `member.user.id`, không gửi username |
 | `paidAt` | Date | Thời điểm trả |
 | `period` | string | Kỳ lương tuần (YYYY-Www, ví dụ `2026-W42`) |
-| `eligibleRoles` | array | Các role được tính lương (bao gồm mọi role user có): `[{roleId, roleName, coefficient}]` |
+| `eligibleRoles` | array | Chi tiết role được tính lương: `[{roleId, roleName, payType, coefficient}]` hoặc `[{roleId, roleName, payType, amount}]` |
 | `paidWithRole` | object | Role dùng để gọi API: `{roleId, roleName}` |
-| `amount` | number | Số coin đã trả (sau khi cap) |
-| `rawAmount` | number | Tổng hệ số gốc (trước khi cap) |
-| `isCapped` | boolean | Có bị cap xuống 100 không |
-| `allRolesAtTime` | array | Tất cả role user có lúc đó: `[{roleId, roleName}]` |
+| `amount` | number | Số coin đã trả (sau khi giới hạn) |
+| `rawAmount` | number | Tổng lương theo hệ số và lương cố định trước khi giới hạn |
+| `coefficientAmount` | number | Phần lương tính theo hệ số |
+| `fixedSalaryAmount` | number | Phần lương cố định được tính vào khoản trả |
+| `isCapped` | boolean | Có bị giới hạn xuống 100 hay không |
+| `allRolesAtTime` | array | Tất cả role thành viên có tại thời điểm đó: `[{roleId, roleName}]` |
 | `status` | string | `SUCCESS`, `DUPLICATE`, `FAILED`, `NO_ROLE`, `NOT_IN_SERVER`, `ERROR` |
-| `apiResponse` | object | Response từ Payroll API |
-| `httpStatus` | number | HTTP status code |
+| `apiResponse` | object | Phản hồi từ API trả lương |
+| `httpStatus` | number | Mã trạng thái HTTP |
 | `error` | string | Thông báo lỗi (nếu có) |
-| `createdAt` | Date | Thời điểm tạo record |
+| `createdAt` | Date | Thời điểm tạo bản ghi |
 
-**Index**: `userId`, `period`, `paidAt`
+**Chỉ mục**: `userId`, `period`, `paidAt`
 
 ---
 
-## Lệnh Admin
-
-Tất cả lệnh yêu cầu permission `Administrator`.
+## Lệnh quản trị
+Tất cả lệnh yêu cầu quyền `Administrator`.
 
 ### 1. `/salary-coefficient`
 
 Quản lý hệ số lương cho các role.
 
-#### Subcommands:
+#### Lệnh con:
 
 **`/salary-coefficient set <role> <coefficient>`**
 - Đặt hệ số lương cho role
-- `coefficient`: 1-100
+- `coefficient`: từ 1 đến 100
 - Ví dụ: `/salary-coefficient set @Sao-đỏ 5`
 
 **`/salary-coefficient get <role>`**
 - Xem hệ số của role
-- Hiển thị hệ số đã cấu hình hoặc mặc định (1)
+- Hiển thị hệ số đã cấu hình hoặc giá trị mặc định (1).
 
 **`/salary-coefficient list`**
 - Xem danh sách tất cả hệ số đã cấu hình
@@ -224,11 +252,32 @@ Quản lý hệ số lương cho các role.
 
 ---
 
-### 2. `/salary-roles`
+### 2. `/salary-simple-role`
+
+Cấu hình mức lương cố định riêng cho role, trả tự động theo cùng lịch chung với hệ thống lương.
+
+**`/salary-simple-role set <role> <amount>`**
+- Đặt mức lương cố định 1-100 coin cho mỗi kỳ.
+- Ví dụ: `/salary-simple-role set @Nhân-viên 20`
+
+**`/salary-simple-role get <role>`**
+- Xem mức lương cố định đã cấu hình.
+
+**`/salary-simple-role list`**
+- Xem các role và mức lương cố định.
+
+**`/salary-simple-role delete <role>`**
+- Xóa mức lương cố định của role.
+
+Role có lương cố định tự đủ điều kiện nhận khoản B, nhưng không tự tạo khoản A. Nếu thành viên cũng có role trong `salary_eligible_roles`, A được tính theo hệ số của tất cả role (bao gồm role lương cố định, mặc định 1 nếu chưa cấu hình); sau đó cộng B.
+
+---
+
+### 3. `/salary-roles`
 
 Quản lý danh sách role được trả lương.
 
-#### Subcommands:
+#### Lệnh con:
 
 **`/salary-roles add <role>`**
 - Thêm role vào danh sách được trả lương
@@ -236,15 +285,15 @@ Quản lý danh sách role được trả lương.
 
 **`/salary-roles remove <role>`**
 - Xóa role khỏi danh sách
-- User có role này sẽ không còn được trả lương
+- Nếu role không được cấu hình tại `/salary-simple-role`, thành viên chỉ còn role này sẽ không đủ điều kiện nhận lương.
 
 **`/salary-roles list`**
 - Xem danh sách role đủ điều kiện
-- Hiển thị tên và ID
+- Hiển thị tên và ID.
 
 ---
 
-### 3. `/salary-schedule`
+### 4. `/salary-schedule`
 
 Đặt lịch trả lương tự động.
 
@@ -254,7 +303,7 @@ Quản lý danh sách role được trả lương.
 /salary-schedule <day> <hour>
 ```
 
-**Parameters:**
+**Tham số:**
 - `day`: Ngày trong tuần (Chủ nhật đến Thứ bảy)
 - `hour`: Giờ (0-23)
 
@@ -265,8 +314,8 @@ Quản lý danh sách role được trả lương.
 ```
 
 **Lưu ý:**
-- Thay đổi có hiệu lực ngay lập tức
-- Cron job sẽ restart với lịch mới
+- Thay đổi có hiệu lực ngay lập tức.
+- Tác vụ cron sẽ khởi động lại theo lịch mới.
 
 ---
 
@@ -281,16 +330,16 @@ Chạy trả lương ngay lập tức (không cần chờ lịch).
 ```
 
 **Chức năng:**
-- Xử lý toàn bộ quy trình trả lương ngay
+- Xử lý toàn bộ quy trình trả lương ngay lập tức.
 - Hiển thị kết quả chi tiết:
-  - Tổng số người
+  - Tổng số thành viên
   - Thành công
   - Thất bại
-  - Bỏ qua (đã trả/không đủ điều kiện)
+  - Số thành viên được bỏ qua (đã trả/không đủ điều kiện)
   - Thời gian xử lý
 
-**Use cases:**
-- Test cấu hình
+**Trường hợp sử dụng:**
+- Kiểm thử cấu hình
 - Trả lương khẩn cấp
 - Chạy bù sau khi sửa lỗi
 
@@ -301,15 +350,15 @@ Chạy trả lương ngay lập tức (không cần chờ lịch).
 Thêm vào file `.env`:
 
 ```bash
-# Payroll API Configuration
+# Cấu hình API trả lương
 PAYROLL_API_KEY=your_payroll_api_key_here
 PAYROLL_API_BASE_URL=http://localhost:3000/api/payroll
 ```
 
 **Lưu ý:**
-- `PAYROLL_API_KEY`: API key do quản trị bot "Viện kiểm sát" cấp
-- `PAYROLL_API_BASE_URL`: URL của Payroll API
-- Bot sẽ không khởi động được nếu thiếu 2 biến này
+- `PAYROLL_API_KEY`: khóa API do quản trị bot "Viện kiểm sát" cấp
+- `PAYROLL_API_BASE_URL`: địa chỉ cơ sở của API trả lương
+- Bot sẽ không khởi động được nếu thiếu hai biến này.
 
 ---
 
@@ -318,39 +367,40 @@ PAYROLL_API_BASE_URL=http://localhost:3000/api/payroll
 ### 1. Số tiền
 
 - **Tối thiểu**: 1 coin
-- **Tối đa**: 100 coins (giới hạn của Payroll API)
-- Nếu tổng hệ số > 100 → tự động cap xuống 100
+- **Tối đa**: 100 coin (giới hạn của API trả lương)
+- Tổng lương theo hệ số và lương cố định được cộng lại; nếu tổng vượt 100 coin thì giới hạn ở 100.
 
 ### 2. Role
 
-- Chỉ role trong `salary_eligible_roles` mới được xử lý
-- User phải **đang có** role lúc trả lương
+- Thành viên cần có ít nhất một role trong `salary_eligible_roles` hoặc `salary_simple_roles`.
+- Nếu chỉ có role trong `salary_simple_roles`, thành viên nhận khoản cố định B; khoản hệ số A chỉ áp dụng khi có role trong `salary_eligible_roles`.
+- Thành viên phải **đang có** role tại thời điểm trả lương
 - Không thể dùng `@everyone`
-- Bot account bị loại trừ
+- Tài khoản bot không được tính
 
-### 3. Deduplicate
+### 3. Loại bỏ thành viên trùng lặp
 
-- Mỗi user chỉ xử lý **1 lần** mỗi đợt
+- Mỗi thành viên chỉ được xử lý **một lần** mỗi đợt
 - API chống trả trùng: **1 lần mỗi role mỗi tháng**
 - Gọi lại → `duplicate: true`, không trừ tiền
 
-### 4. Retry Policy
+### 4. Chính sách thử lại
 
-**Retry (3 lần, backoff 2s/4s/8s):**
-- `409 Conflict`: Request trùng đang xử lý
+**Thử lại (3 lần, thời gian chờ tăng dần 2/4/8 giây):**
+- `409 Conflict`: Yêu cầu trùng đang được xử lý
 - `503 Service Unavailable`: Bot đang khởi động
 
-**Không retry:**
+**Không thử lại:**
 - `400 Bad Request`: Dữ liệu sai
-- `403 Forbidden`: User không có role
-- `404 Not Found`: User không trong server
+- `403 Forbidden`: Thành viên không có role
+- `404 Not Found`: Thành viên không ở trong máy chủ
 - `200` + `status: FAILED`: Ví bot hết tiền
 
-### 5. Timezone
+### 5. Múi giờ
 
-- Cron chạy theo giờ server
-- **Khuyến nghị**: Set env `TZ=Asia/Ho_Chi_Minh` khi deploy
-- Hoặc đảm bảo server timezone đúng
+- Cron chạy theo giờ máy chủ.
+- **Khuyến nghị**: Đặt biến môi trường `TZ=Asia/Ho_Chi_Minh` khi triển khai.
+- Hoặc bảo đảm múi giờ máy chủ được cấu hình chính xác.
 
 ---
 
@@ -358,135 +408,138 @@ PAYROLL_API_BASE_URL=http://localhost:3000/api/payroll
 
 ### Lỗi thường gặp
 
-| Lỗi | Nguyên nhân | Giải pháp |
+| Lỗi | Nguyên nhân | Cách khắc phục |
 |-----|-------------|-----------|
-| `PAYROLL_API_KEY is required` | Thiếu env variable | Kiểm tra file `.env` |
-| `Guild not found` | Bot không ở trong server | Kiểm tra `GUILD_ID` |
+| `PAYROLL_API_KEY is required` | Thiếu biến môi trường | Kiểm tra tệp `.env` |
+| `Guild not found` | Bot không ở trong máy chủ | Kiểm tra `GUILD_ID` |
 | `Role not found` | Role đã bị xóa | Cập nhật lại danh sách role |
-| `HTTP 403` | User không có role | Bỏ qua, log warning |
-| `HTTP 404` | User đã rời server | Bỏ qua, log warning |
+| `HTTP 403` | Thành viên không có role | Bỏ qua và ghi nhật ký cảnh báo |
+| `HTTP 404` | Thành viên đã rời máy chủ | Bỏ qua và ghi nhật ký cảnh báo |
 | `status: FAILED` | Ví bot hết tiền | Nạp tiền vào ví bot |
-| `Connection timeout` | API không phản hồi | Retry tự động, kiểm tra network |
+| `Connection timeout` | API không phản hồi | Tự động thử lại và kiểm tra mạng |
 
-### Best Practices
+### Thực hành tốt
 
-1. **Kiểm tra balance trước khi chạy:**
-   - Sử dụng `/salary-payout-now` để test
-   - Xem log balance warning
+1. **Kiểm tra số dư trước khi chạy:**
+   - Dùng `/salary-payout-now` để kiểm thử.
+   - Kiểm tra cảnh báo số dư trong nhật ký.
 
-2. **Test cấu hình:**
-   - Tạo test role với 1-2 user
+2. **Kiểm thử cấu hình:**
+   - Tạo role thử nghiệm với 1-2 thành viên.
    - Chạy `/salary-payout-now`
    - Kiểm tra lịch sử trong database
 
-3. **Monitor logs:**
-   - `[Payroll]`: Thông tin xử lý
-   - `[WARN]`: Cảnh báo (không ảnh hưởng)
-   - `[ERROR]`: Lỗi cần xử lý
+3. **Theo dõi nhật ký:**
+   - `[Payroll]`: Thông tin xử lý.
+   - `[WARN]`: Cảnh báo (không ảnh hưởng).
+   - `[ERROR]`: Lỗi cần xử lý.
 
-4. **Backup:**
-   - Export `salary_history` định kỳ
-   - Lưu cấu hình role và coefficient
+4. **Sao lưu:**
+   - Xuất `salary_history` định kỳ.
+   - Lưu cấu hình role và hệ số.
 
 ---
 
-## Edge Cases
+## Trường hợp ngoại lệ
 
-### Case 1: User có nhiều eligible role
+### Trường hợp 1: Thành viên có nhiều role đủ điều kiện
 
 ```
-User có: "Sao đỏ" (coef=2), "Sao vàng" (coef=3), "Sao xanh" (coef không set)
-→ Tổng = 2 + 3 + 1(default) = 6 coins
-→ API call với role "Sao đỏ" (first in list)
+Thành viên có: "Sao đỏ" (hệ số=2), "Sao vàng" (hệ số=3), "Sao xanh" (chưa cấu hình hệ số)
+→ Tổng = 2 + 3 + 1 (mặc định) = 6 coin
+→ Gọi API bằng role "Sao đỏ" (role đầu tiên trong danh sách)
 ```
 
-### Case 2: User đã được trả trong tháng
+### Trường hợp 2: Thành viên đã được trả trong tháng
 
 ```
 Lần 1: API trả thành công → status=SUCCESS, duplicate=false
 Lần 2 (cùng tháng): API trả về → status=SUCCESS, duplicate=true
-→ Không trừ tiền, lưu history với status=DUPLICATE
+→ Không trừ tiền, lưu lịch sử với status=DUPLICATE
 ```
 
-### Case 3: Tổng hệ số > 100
+### Trường hợp 3: Tổng hệ số lớn hơn 100
 
 ```
-User có 5 role, mỗi role hệ số 30
+Thành viên có 5 role, mỗi role có hệ số 30
 → Tổng = 150
-→ Cap xuống 100
+→ Giới hạn ở mức 100
 → Lưu: amount=100, rawAmount=150, isCapped=true
 ```
 
-### Case 4: User rời server giữa chừng
+### Trường hợp 4: Thành viên rời máy chủ giữa chừng
 
 ```
-Lấy danh sách: User A có trong list
-Xử lý đến User A: API trả về 404
-→ Lưu history với status=NOT_IN_SERVER
-→ Tiếp tục xử lý user khác
+Lấy danh sách: Thành viên A có trong danh sách
+Xử lý đến thành viên A: API trả về 404
+→ Lưu lịch sử với status=NOT_IN_SERVER
+→ Tiếp tục xử lý thành viên khác
 ```
 
-### Case 5: Ví bot hết tiền
+### Trường hợp 5: Ví bot hết tiền
 
 ```
 API trả về: status=FAILED, error="Insufficient balance"
 → Lưu history với status=FAILED
-→ Log ERROR nhưng KHÔNG dừng xử lý
-→ Admin cần nạp tiền và chạy lại `/salary-payout-now`
+→ Ghi nhật ký ERROR nhưng KHÔNG dừng xử lý.
+→ Quản trị viên cần nạp tiền và chạy lại `/salary-payout-now`.
 ```
 
 ---
 
-## Workflow Setup
+## Quy trình cài đặt
 
-### Lần đầu setup
+### Cài đặt lần đầu
 
 ```bash
-# 1. Cấu hình API credentials
-# Chỉnh file .env:
+# 1. Cấu hình thông tin xác thực API
+# Chỉnh sửa tệp .env:
 PAYROLL_API_KEY=<your-key>
 PAYROLL_API_BASE_URL=http://<host>:3000/api/payroll
 
-# 2. Restart bot để load env variables
+# 2. Khởi động lại bot để tải biến môi trường
 npm start
 
 # 3. Thêm role được trả lương
 /salary-roles add @Sao-đỏ
 /salary-roles add @Sao-vàng
 
-# 4. Cấu hình hệ số (optional, mặc định = 1)
+# 4. Cấu hình hệ số (không bắt buộc, mặc định = 1)
 /salary-coefficient set @Sao-đỏ 2
 /salary-coefficient set @Sao-vàng 3
+
+# Hoặc cấu hình role nhận lương cố định theo kỳ
+/salary-simple-role set @Nhân-viên 20
 
 # 5. Đặt lịch trả lương
 /salary-schedule day:Thu-hai hour:0
 
-# 6. Test
+# 6. Kiểm thử
 /salary-payout-now
 ```
 
 ### Thay đổi lịch trình
 
 ```bash
-# Đổi sang Thứ Sáu 18:00
+# Đổi lịch sang Thứ Sáu lúc 18:00
 /salary-schedule day:Thu-sau hour:18
 ```
 
 ### Thêm role mới
 
 ```bash
-# Thêm role
+# Thêm role mới
 /salary-roles add @Sao-xanh
 
-# Đặt hệ số (optional)
+# Đặt hệ số (không bắt buộc)
 /salary-coefficient set @Sao-xanh 4
 ```
 
 ---
 
-## Troubleshooting
+## Khắc phục sự cố
 
-### Bot không trả lương tự động
+### Bot không tự động trả lương
 
 1. Kiểm tra scheduler đã init:
    ```
@@ -498,32 +551,32 @@ npm start
    /salary-schedule day:Thu-hai hour:0
    ```
 
-3. Kiểm tra timezone server:
+3. Kiểm tra múi giờ máy chủ:
    ```bash
    echo $TZ
-   # Should be: Asia/Ho_Chi_Minh
+   # Kết quả dự kiến: Asia/Ho_Chi_Minh
    ```
 
-### Lệnh không response
+### Lệnh không phản hồi
 
-1. Kiểm tra đã register commands:
+1. Kiểm tra lệnh đã được đăng ký:
    ```
    [SUCCESS] Da dang ky lenh thanh cong!
    ```
 
-2. Restart bot để reload commands
+2. Khởi động lại bot để tải lại lệnh.
 
-3. Kiểm tra permission: User phải có Administrator
+3. Kiểm tra quyền: người dùng cần có `Administrator`.
 
-### API call thất bại
+### Gọi API thất bại
 
-1. Test connectivity:
+1. Kiểm tra kết nối:
    ```bash
    curl -H "x-api-key: $PAYROLL_API_KEY" \
      $PAYROLL_API_BASE_URL/balance
    ```
 
-2. Kiểm tra API key hợp lệ
+2. Kiểm tra khóa API có hợp lệ hay không.
 
 3. Xem log chi tiết:
    ```
@@ -532,118 +585,116 @@ npm start
 
 ---
 
-## Performance
+## Hiệu năng
 
-### Metrics
+### Số liệu tham khảo
 
-- **Xử lý**: ~500ms/user (bao gồm API call + retry)
-- **Throughput**: ~2 users/second
-- **Memory**: ~50MB cho 1000 users
+- **Thời gian xử lý**: khoảng 500 ms/thành viên (bao gồm gọi API và thử lại)
+- **Thông lượng**: khoảng 2 thành viên/giây
+- **Bộ nhớ**: khoảng 50 MB cho 1.000 thành viên
 
-### Optimization
+### Tối ưu hóa
 
-1. **Sequential processing**: Tránh 409 conflict
-2. **Backoff retry**: Giảm load lên API
-3. **Connection reuse**: Native fetch tự quản lý pool
-4. **Database index**: roleId, userId, period
+1. **Xử lý tuần tự**: Tránh xung đột `409`.
+2. **Thử lại với thời gian chờ tăng dần**: Giảm tải cho API.
+3. **Tái sử dụng kết nối**: `fetch` tích hợp sẵn tự quản lý nhóm kết nối.
+4. **Chỉ mục cơ sở dữ liệu**: `roleId`, `userId`, `period`.
 
 ---
 
-## Security
+## Bảo mật
 
-### API Key Management
+### Quản lý khóa API
 
-- ✅ Store in `.env` (gitignore)
-- ✅ Validate at startup
-- ❌ Không log API key
-- ❌ Không hardcode trong code
+- ✅ Lưu trong `.env` (đã được loại trừ khỏi Git)
+- ✅ Kiểm tra khi khởi động
+- ❌ Không ghi nhật ký khóa API.
+- ❌ Không ghi cứng khóa API trong mã nguồn.
 
-### Permission Control
+### Kiểm soát quyền
+- Tất cả lệnh yêu cầu quyền `Administrator`.
+- Role của bot phải cao hơn các role được trả lương.
+- Không cho phép thay đổi `@everyone`.
 
-- Tất cả lệnh yêu cầu `Administrator`
-- Bot role phải cao hơn salary roles
-- Không cho phép modify `@everyone`
-
-### Audit Trail
-
-- Mọi thay đổi lưu `updatedBy`
-- Lịch sử trả lương đầy đủ trong `salary_history`
-- Log tất cả actions
+### Nhật ký kiểm toán
+- Lưu người thực hiện mọi thay đổi trong `updatedBy`.
+- Lưu đầy đủ lịch sử trả lương trong `salary_history`.
+- Ghi nhật ký mọi thao tác.
 
 ---
 
 ## Tài liệu tham khảo
 
-- [Payroll API Documentation](../api/PAYROLL_API.md)
-- [Discord.js Guide](https://discordjs.guide/)
-- [Node-cron Documentation](https://www.npmjs.com/package/node-cron)
-- [MongoDB Node Driver](https://www.mongodb.com/docs/drivers/node/current/)
+- [Tài liệu API trả lương](../api/PAYROLL_API.md)
+- [Hướng dẫn Discord.js](https://discordjs.guide/)
+- [Tài liệu Node-cron](https://www.npmjs.com/package/node-cron)
+- [Trình điều khiển MongoDB cho Node.js](https://www.mongodb.com/docs/drivers/node/current/)
 
 ---
 
-## Changelog
+## Lịch sử thay đổi
 
-### Version 1.0.0 (Initial Release)
+### Phiên bản 1.0.0 (phát hành lần đầu)
 
-- ✅ Auto payroll scheduler
-- ✅ 4 admin commands
-- ✅ Retry logic with backoff
-- ✅ Deduplication
-- ✅ History tracking
-- ✅ Comprehensive error handling
-
----
-
-**Liên hệ:** Quản trị viên bot để được hỗ trợ
-
+- ✅ Tác vụ trả lương tự động theo lịch.
+- ✅ Các lệnh quản trị.
+- ✅ Tự động thử lại với thời gian chờ tăng dần.
+- ✅ Loại bỏ thành viên trùng lặp.
+- ✅ Theo dõi lịch sử.
+- ✅ Xử lý lỗi đầy đủ.
 
 ---
 
-## 🔔 Hệ Thống Thông Báo (Notification System)
+**Liên hệ:** Quản trị viên bot để được hỗ trợ.
+
+
+---
+
+## 🔔 Hệ thống thông báo
 
 ### Tổng quan
 
-Hệ thống notification tự động gửi thông báo trước khi trả lương, giúp admin biết trước:
-- Tổng coins cần trả
+Hệ thống tự động gửi thông báo trước khi trả lương để quản trị viên biết:
+- Tổng số coin cần trả
 - Số dư hiện tại
-- Liệu có đủ tiền không
+- Ví có đủ tiền hay không
 
 ### Cách hoạt động
 
 ```
-1. Scheduler chạy theo lịch đã cấu hình
-2. Tính toán tổng coins cần trả (giống logic trả lương)
-3. Gọi API GET /balance để lấy số dư
-4. Gửi embed notification đến roles được chỉ định
+1. Scheduler chạy theo lịch đã cấu hình.
+2. Tính tổng số coin cần trả theo cùng logic với quy trình trả lương.
+3. Gọi API `GET /balance` để lấy số dư.
+4. Gửi embed thông báo đến các role được chỉ định.
 ```
 
-### Commands
+### Lệnh
 
-#### 1. Set lịch notification
+#### 1. Đặt lịch thông báo
 ```
 /salary-notification-schedule <day> <hour> <minute> <roles...>
 
 Ví dụ:
 /salary-notification-schedule sunday 20 00 @Admin @Manager
-→ Mỗi Chủ Nhật 20:00, gửi notification cho Admin và Manager
+→ Mỗi Chủ Nhật lúc 20:00, gửi thông báo cho Admin và Manager
 ```
 
-#### 2. Quản lý roles nhận notification
+#### 2. Quản lý role nhận thông báo
 ```
 /salary-notification-roles add @Role     # Thêm role
 /salary-notification-roles remove @Role  # Xóa role
 /salary-notification-roles list          # Xem danh sách
 ```
 
-### Notification Embed Format
+### Định dạng embed thông báo
 
 ```
 📊 BÁO CÁO TRẢ LƯƠNG SẮP TỚI
 
 📅 Thời gian trả: Thứ Hai, 21/10/2026 lúc 00:00
 
-👥 Số người: 45 members
-💰 Tổng coins cần trả: 1,250 coins
+👥 Số người: 45 thành viên
+💰 Tổng số coin cần trả: 1,250
 
 🏦 Số dư hiện tại: 1,500 coins
 ✅ Trạng thái: Đủ để trả lương
@@ -660,8 +711,8 @@ Hoặc nếu thiếu:
 
 📅 Thời gian trả: Thứ Hai, 21/10/2026 lúc 00:00
 
-👥 Số người: 45 members
-💰 Tổng coins cần trả: 1,250 coins
+👥 Số người: 45 thành viên
+💰 Tổng số coin cần trả: 1,250
 
 🏦 Số dư hiện tại: 800 coins
 ⚠️ THIẾU: 450 coins
@@ -672,9 +723,9 @@ Hoặc nếu thiếu:
 📝 Hệ thống sẽ tự động ghi nợ nếu không nạp thêm.
 ```
 
-### Database Schema
+### Cấu trúc cơ sở dữ liệu
 
-**Collection: `salary_notification_config`**
+**Bộ sưu tập: `salary_notification_config`**
 ```javascript
 {
   _id: "notification_schedule",
@@ -682,7 +733,7 @@ Hoặc nếu thiếu:
   hour: 20,
   minute: 0,
   timezone: "Asia/Ho_Chi_Minh",
-  notificationRoles: [       // Roles nhận notification
+  notificationRoles: [       // Các role nhận thông báo
     "1234567890",
     "9876543210"
   ],
@@ -692,43 +743,43 @@ Hoặc nếu thiếu:
 
 ---
 
-## 💳 Hệ Thống Ghi Nợ (Debt Tracking System)
+## 💳 Hệ thống theo dõi nợ
 
 ### Tổng quan
 
-Khi số dư ví bot không đủ để trả lương cho tất cả, hệ thống sẽ:
-- **Không trả** cho ai cả
-- **Ghi nợ** toàn bộ vào database
-- Admin có thể **trả nợ sau** khi đã nạp tiền
+Khi số dư ví bot không đủ để trả lương cho tất cả thành viên, hệ thống sẽ:
+- **Không trả lương** cho bất kỳ ai.
+- **Ghi lại khoản nợ** trong cơ sở dữ liệu.
+- Cho phép quản trị viên **trả nợ sau** khi nạp thêm tiền.
 
 ### Khi nào ghi nợ?
 
 ```
-1. Scheduler tự động chạy trả lương
-2. Hoặc admin dùng /salary-payout-now
+1. Scheduler tự động chạy quy trình trả lương.
+2. Hoặc quản trị viên dùng `/salary-payout-now`.
 
-→ Tính tổng coins cần trả
-→ Gọi GET /balance
-→ Nếu balance < total needed:
-   ├─ Tạo debt record
-   ├─ Lưu danh sách tất cả người cần trả
-   └─ KHÔNG gọi API transfer
+→ Tính tổng số coin cần trả.
+→ Gọi `GET /balance`.
+→ Nếu số dư nhỏ hơn tổng cần trả:
+   ├─ Tạo bản ghi khoản nợ.
+   ├─ Lưu danh sách tất cả thành viên cần được trả.
+   └─ KHÔNG gọi API chuyển tiền.
 ```
 
-### Debt ID Format
+### Định dạng mã khoản nợ
 
-DebtId được tạo từ timestamp:
+Mã khoản nợ được tạo từ dấu thời gian:
 ```
-Format: DDMMYYYYHHmm (14 digits)
+Định dạng: DDMMYYYYHHmm (14 chữ số)
 
 Ví dụ:
 - Trả lương lúc: 19/10/2026 08:31
 - DebtId: 191020260831
 ```
 
-### Database Schema
+### Cấu trúc cơ sở dữ liệu
 
-**Collection: `salary_debts`**
+**Bộ sưu tập: `salary_debts`**
 ```javascript
 {
   debtId: "191020260831",
@@ -765,7 +816,7 @@ Ví dụ:
 }
 ```
 
-### Commands Quản Lý Nợ
+### Lệnh quản lý nợ
 
 #### 1. Xem danh sách nợ
 ```
@@ -821,59 +872,59 @@ Dùng /salary-pay-debt 191020260831 để trả nợ
 /salary-pay-debt 191020260831
 
 → Bot sẽ:
-  1. Load debt record
-  2. Check balance hiện tại
-  3. Nếu đủ:
-     ├─ Trả lần lượt cho từng người
-     ├─ Update debt status = "paid"
-     ├─ Set paidAt timestamp
-     └─ Reply với kết quả
-  4. Nếu vẫn thiếu:
-     └─ Reply lỗi với số dư hiện tại
+  1. Tải bản ghi khoản nợ.
+  2. Kiểm tra số dư hiện tại.
+  3. Nếu đủ tiền:
+     ├─ Trả lần lượt cho từng thành viên.
+     ├─ Cập nhật trạng thái nợ thành "paid".
+     ├─ Ghi dấu thời gian vào paidAt.
+     └─ Trả lời kèm kết quả.
+  4. Nếu vẫn thiếu tiền:
+     └─ Trả lời lỗi kèm số dư hiện tại.
 
 Reply khi thành công:
 ✅ ĐÃ TRẢ NỢ THÀNH CÔNG
 
 Debt ID: 191020260831
-Đã trả cho: 45/45 người
-Tổng: 1,250 coins
+Đã trả cho: 45/45 thành viên
+Tổng: 1,250 coin
 
-Số dư còn lại: 750 coins
+Số dư còn lại: 750 coin
 ```
 
 ### Luồng xử lý nợ
 
 ```
 ┌─────────────────────────────────────────────┐
-│  Payroll Scheduler / Manual Payout          │
+│  Scheduler trả lương / Trả lương thủ công   │
 └────────────────┬────────────────────────────┘
                  │
                  ▼
         ┌────────────────┐
-        │ Calculate Total│
-        │  Coins Needed  │
+        │ Tính tổng số   │
+        │ coin cần trả   │
         └────────┬───────┘
                  │
                  ▼
          ┌──────────────┐
-         │ Check Balance│
+         │ Kiểm tra số dư│
          └──────┬───────┘
                  │
         ┌────────┴────────┐
         │                 │
-    Enough?           Not enough?
+    Đủ tiền?          Không đủ?
         │                 │
         ▼                 ▼
 ┌───────────────┐   ┌──────────────┐
-│ Process       │   │ Create Debt  │
-│ Payments      │   │   Record     │
-│ Normally      │   │              │
+│ Xử lý thanh   │   │ Tạo bản ghi  │
+│ toán bình     │   │ khoản nợ     │
+│ thường        │   │              │
 └───────────────┘   └──────┬───────┘
                            │
                            ▼
                   ┌─────────────────┐
-                  │ Skip all        │
-                  │   payments      │
+                  │ Bỏ qua toàn bộ │
+                  │ khoản thanh toán│
                   └─────────────────┘
                   
 Later...
@@ -884,117 +935,124 @@ Later...
             │
             ▼
     ┌──────────────┐
-    │ Check Balance│
+    │ Kiểm tra số dư│
     └──────┬───────┘
             │
     ┌───────┴────────┐
     │                │
-Enough?          Still not?
+Đủ tiền?         Vẫn thiếu?
     │                │
     ▼                ▼
 ┌──────────┐   ┌─────────┐
-│ Pay All  │   │  Error  │
-│ Members  │   │ Message │
+│ Trả cho  │   │ Thông  │
+│ tất cả   │   │ báo lỗi│
+│ thành viên│  │         │
 └────┬─────┘   └─────────┘
      │
      ▼
 ┌──────────────┐
-│ Mark as Paid │
+│ Đánh dấu đã trả │
 └──────────────┘
 ```
 
 ---
 
-## 🎯 Commands Tổng Hợp
+## 🎯 Danh sách lệnh tổng hợp
 
-### Admin Commands
+### Lệnh quản trị
 
-| Command | Mô tả | Ví dụ |
+| Lệnh | Mô tả | Ví dụ |
 |---------|-------|-------|
-| `/salary-coefficient <role> <số>` | Set hệ số lương cho role | `/salary-coefficient @Member 2` |
+| `/salary-coefficient <role> <số>` | Đặt hệ số lương cho role | `/salary-coefficient @Member 2` |
+| `/salary-simple-role set <role> <amount>` | Đặt lương cố định cho role mỗi kỳ | `/salary-simple-role set @Member 20` |
+| `/salary-simple-role get <role>` | Xem lương cố định của role | `/salary-simple-role get @Member` |
+| `/salary-simple-role list` | Xem danh sách role lương cố định | `/salary-simple-role list` |
+| `/salary-simple-role delete <role>` | Xóa cấu hình lương cố định | `/salary-simple-role delete @Member` |
 | `/salary-roles add <role>` | Thêm role được trả lương | `/salary-roles add @Active` |
 | `/salary-roles remove <role>` | Xóa role khỏi danh sách | `/salary-roles remove @Inactive` |
-| `/salary-roles list` | Xem danh sách roles | `/salary-roles list` |
-| `/salary-schedule <day> <hour> <minute>` | Set lịch trả lương | `/salary-schedule monday 8 30` |
+| `/salary-roles list` | Xem danh sách role | `/salary-roles list` |
+| `/salary-schedule <day> <hour> <minute>` | Đặt lịch trả lương | `/salary-schedule monday 8 30` |
 | `/salary-payout-now` | Trả lương ngay lập tức | `/salary-payout-now` |
-| `/salary-notification-schedule <day> <hour> <minute> <roles...>` | Set lịch thông báo | `/salary-notification-schedule sunday 20 0 @Admin` |
+| `/salary-notification-schedule <day> <hour> <minute> <roles...>` | Đặt lịch thông báo | `/salary-notification-schedule sunday 20 0 @Admin` |
 | `/salary-notification-roles add <role>` | Thêm role nhận thông báo | `/salary-notification-roles add @Manager` |
-| `/salary-notification-roles remove <role>` | Xóa role khỏi notification | `/salary-notification-roles remove @Manager` |
-| `/salary-notification-roles list` | Xem roles nhận thông báo | `/salary-notification-roles list` |
+| `/salary-notification-roles remove <role>` | Xóa role khỏi danh sách nhận thông báo | `/salary-notification-roles remove @Manager` |
+| `/salary-notification-roles list` | Xem role nhận thông báo | `/salary-notification-roles list` |
 | `/salary-debts list` | Xem danh sách nợ | `/salary-debts list` |
 | `/salary-debt-detail <debtId>` | Chi tiết khoản nợ | `/salary-debt-detail 191020260831` |
 | `/salary-pay-debt <debtId>` | Trả nợ cho một đợt | `/salary-pay-debt 191020260831` |
-| `/salary-preview` | Xem preview tổng coins cần trả | `/salary-preview` |
-| `/salary-info` | Xem tổng hợp hệ thống (lịch + preview) | `/salary-info` |
+| `/salary-preview` | Xem bản xem trước tổng số coin cần trả | `/salary-preview` |
+| `/salary-info` | Xem thông tin hệ thống (lịch và bản xem trước) | `/salary-info` |
 
-**Tất cả commands trên đều yêu cầu Administrator permission**
+**Tất cả lệnh trên đều yêu cầu quyền `Administrator`.**
 
 ---
 
-### Member Commands
+### Lệnh thành viên
 
-Lệnh cho thành viên thường (không cần quyền Admin):
+Lệnh dành cho thành viên (không cần quyền quản trị):
 
-| Command | Mô tả | Ví dụ |
+| Lệnh | Mô tả | Ví dụ |
 |---------|-------|-------|
 | `/salary-check` | Kiểm tra lương cá nhân | `/salary-check` |
 
 **Lệnh này hiển thị:**
-- Danh sách tất cả roles của bạn (trừ @everyone và bot roles)
-- Hệ số của mỗi role (từ DB hoặc mặc định = 1)
-- Tổng coins bạn sẽ nhận hàng tuần
-- Lịch trả lương tiếp theo
+- Các role tính theo hệ số và role có lương cố định.
+- Tổng hệ số, phần lương cố định và tổng coin dự kiến mỗi kỳ.
+- Lịch trả lương tiếp theo.
 
 **Lưu ý:**
-- Tất cả roles của bạn đều được tính (không chỉ eligible roles)
-- Roles không có cấu hình hệ số sẽ dùng mặc định = 1
-- Tổng coins tối đa là 100 (nếu vượt sẽ bị cap)
+- Bạn cần có ít nhất một role trong danh sách role đủ điều kiện hoặc danh sách role lương cố định.
+- Lương hệ số A chỉ áp dụng khi bạn có role thuộc danh sách `/salary-roles`; lương cố định B áp dụng theo các role đã cấu hình tại `/salary-simple-role`.
+- Tổng nhận được là A + B, tối đa 100 coin.
+- Role thường chưa cấu hình hệ số sẽ dùng giá trị mặc định = 1.
+- Tổng số coin tối đa là 100; nếu vượt sẽ bị giới hạn ở mức này.
 
 ---
 
-## 📊 MongoDB Collections Tổng Hợp
+## 📊 Tổng hợp các collection MongoDB
 
-| Collection | Mục đích | Key Fields |
+| Bộ sưu tập | Mục đích | Trường chính |
 |------------|----------|------------|
 | `salary_coefficients` | Hệ số lương theo role | `roleId`, `coefficient` |
-| `salary_eligible_roles` | Roles được trả lương | `roleId` |
+| `salary_simple_roles` | Lương cố định theo role | `roleId`, `amount` |
+| `salary_eligible_roles` | Các role được trả lương | `roleId` |
 | `salary_config` | Lịch trả lương | `dayOfWeek`, `hour`, `minute` |
 | `salary_notification_config` | Lịch thông báo | `dayOfWeek`, `hour`, `minute`, `notificationRoles` |
 | `salary_history` | Lịch sử trả lương | `userId`, `amount`, `status`, `paidAt` |
-| `salary_debts` | Nợ lương chưa trả | `debtId`, `unpaidMembers`, `status` |
+| `salary_debts` | Các khoản nợ lương chưa trả | `debtId`, `unpaidMembers`, `status` |
 
 ---
 
 ## 🔄 Luồng hoạt động đầy đủ
 
-### Timeline Ví Dụ
+### Ví dụ dòng thời gian
 
 ```
-Chủ Nhật 20:00 (Notification)
-├─► Notification scheduler kích hoạt
-├─► Tính tổng coins cần: 1,250
-├─► Check balance: 800 coins
-├─► Gửi embed cảnh báo thiếu 450 coins
-└─► Mention @Admin @Manager
+Chủ Nhật 20:00 (Thông báo)
+├─► Tác vụ gửi thông báo được kích hoạt
+├─► Tính tổng số coin cần: 1.250
+├─► Kiểm tra số dư: 800 coin
+├─► Gửi embed cảnh báo thiếu 450 coin
+└─► Nhắc đến @Admin @Manager
 
-Thứ Hai 08:30 (Payroll)
-├─► Payroll scheduler kích hoạt
-├─► Tính tổng coins cần: 1,250
-├─► Check balance: 800 coins (vẫn thiếu)
-├─► Tạo debt record: 211020260830
-├─► Lưu 45 unpaid members
-└─► Skip payments, ghi log
+Thứ Hai 08:30 (Trả lương)
+├─► Tác vụ trả lương được kích hoạt
+├─► Tính tổng số coin cần: 1.250
+├─► Kiểm tra số dư: 800 coin (vẫn thiếu)
+├─► Tạo bản ghi nợ: 211020260830
+├─► Lưu 45 thành viên chưa được trả lương
+└─► Bỏ qua thanh toán và ghi nhật ký
 
-Admin nạp tiền...
+Quản trị viên nạp tiền...
 
-Thứ Ba 14:00 (Manual Debt Payment)
-├─► Admin: /salary-pay-debt 211020260830
-├─► Check balance: 2,000 coins (đủ rồi)
-├─► Trả lần lượt 45 members
-├─► Mark debt as paid
-└─► Reply success với summary
+Thứ Ba 14:00 (Trả nợ thủ công)
+├─► Quản trị viên: /salary-pay-debt 211020260830
+├─► Kiểm tra số dư: 2.000 coin (đã đủ)
+├─► Trả lần lượt cho 45 thành viên
+├─► Đánh dấu khoản nợ đã trả
+└─► Trả lời kèm tổng kết thành công
 ```
 
 ---
 
-*Cập nhật lần cuối: 2026-10-18*
+*Cập nhật lần cuối: 2026-10-22*

@@ -4,3 +4,4 @@ export {
   handleReactionRoleRemove,
   handleReactionRoleMemberRemove
 } from './controller.js';
+export { initReactionRoleScheduler } from './scheduler.js';

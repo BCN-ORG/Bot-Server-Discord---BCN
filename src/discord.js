@@ -3,6 +3,16 @@ import renameFeature from './features/rename/index.js';
 import * as schedulerFeature from './features/scheduler/index.js';
 import * as payrollFeature from './features/payroll/index.js';
 import * as reactionRolesFeature from './features/reactionRoles/index.js';
+import * as temporaryRolesFeature from './features/temporaryRoles/index.js';
+import * as fineReportsFeature from './features/fineReports/index.js';
+import * as kickManagerFeature from './features/kickManager/index.js';
+import * as coinRandomFeature from './features/coinRandom/index.js';
+import {
+  execute as kickExecute,
+  executeRollback as kickRollbackExecute,
+  data as kickData,
+  rollbackData as kickRollbackData
+} from './features/kickManager/kick.js';
 
 /**
  * Dang ky lenh slash commands voi Discord
@@ -15,7 +25,14 @@ export async function registerCommands(token, clientId, guildId) {
     renameFeature.command.toJSON(),
     schedulerFeature.data.toJSON(),
     reactionRolesFeature.data.toJSON(),
+    temporaryRolesFeature.data.toJSON(),
+    fineReportsFeature.data.toJSON(),
+    kickManagerFeature.data.toJSON(),
+    coinRandomFeature.data.toJSON(),
+    kickData.toJSON(),
+    kickRollbackData.toJSON(),
     payrollFeature.salaryCoefficient.data.toJSON(),
+    payrollFeature.salarySimpleRole.data.toJSON(),
     payrollFeature.salaryRoles.data.toJSON(),
     payrollFeature.salarySchedule.data.toJSON(),
     payrollFeature.salaryPayoutNow.data.toJSON(),
@@ -66,9 +83,41 @@ export function setupInteractionHandlers(client) {
         await reactionRolesFeature.execute(interaction);
       }
 
+      if (interaction.isChatInputCommand() && interaction.commandName === 'role') {
+        await temporaryRolesFeature.execute(interaction);
+      }
+
+      if (interaction.isChatInputCommand() && interaction.commandName === 'fine') {
+        await fineReportsFeature.execute(interaction);
+      }
+
+      if (interaction.isChatInputCommand() && interaction.commandName === 'kick-manager') {
+        await kickManagerFeature.execute(interaction);
+      }
+
+      if (interaction.isChatInputCommand() && interaction.commandName === 'kick') {
+        await kickExecute(interaction);
+      }
+
+      if (interaction.isChatInputCommand() && interaction.commandName === 'kick-rollback') {
+        await kickRollbackExecute(interaction);
+      }
+
+      if (interaction.isChatInputCommand() && interaction.commandName === 'coin-random') {
+        await coinRandomFeature.execute(interaction);
+      }
+
+      if (interaction.isButton() && interaction.customId.startsWith('coin_random:')) {
+        await coinRandomFeature.handleRandomButton(interaction);
+      }
+
       // Xu ly lenh /salary-coefficient
       if (interaction.isChatInputCommand() && interaction.commandName === 'salary-coefficient') {
         await payrollFeature.salaryCoefficient.execute(interaction);
+      }
+
+      if (interaction.isChatInputCommand() && interaction.commandName === 'salary-simple-role') {
+        await payrollFeature.salarySimpleRole.execute(interaction);
       }
 
       // Xu ly lenh /salary-roles
@@ -160,6 +209,14 @@ export function setupInteractionHandlers(client) {
       // Xu ly submit modal
       if (interaction.isModalSubmit() && interaction.customId === 'rename_modal') {
         await renameFeature.handleModalSubmit(interaction);
+      }
+
+      if (interaction.isModalSubmit() && interaction.customId.startsWith('fine_report_modal:')) {
+        await fineReportsFeature.handleModalSubmit(interaction);
+      }
+
+      if (interaction.isModalSubmit() && interaction.customId.startsWith('fine_appeal_modal:')) {
+        await fineReportsFeature.handleAppealModalSubmit(interaction);
       }
     } catch (error) {
       console.error('[ERROR] Loi khi xu ly interaction:', error);

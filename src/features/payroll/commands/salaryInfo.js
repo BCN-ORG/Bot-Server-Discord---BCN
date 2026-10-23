@@ -101,6 +101,7 @@ export async function execute(interaction, client) {
         name: '💰 Dự toán kỳ tiếp theo',
         value: `👥 Số người: **${preview.memberCount}**\n` +
                `💵 Tổng cần trả: **${preview.totalCoinsNeeded}** coins\n` +
+               `🧾 Trong đó lương cố định: **${preview.fixedSalaryCoins}** coins\n` +
                `🏦 Số dư hiện tại: **${preview.currentBalance}** coins\n` +
                `${statusEmoji} Trạng thái: ${statusText}`,
         inline: false
@@ -117,6 +118,7 @@ export async function execute(interaction, client) {
     embed.addFields({
       name: '🛠️ Lệnh quản lý',
       value: '• `/salary-preview` - Xem chi tiết coins cần trả (Admin)\n' +
+             '• `/salary-simple-role` - Cấu hình lương cố định theo role (Admin)\n' +
              '• `/salary-check` - Xem lương cá nhân\n' +
              '• `/salary-schedule` - Đặt/xem lịch trả lương (Admin)\n' +
              '• `/salary-debts` - Xem danh sách nợ (Admin)',

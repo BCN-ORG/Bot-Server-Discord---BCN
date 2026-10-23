@@ -9,6 +9,14 @@ function getSalaryCoefficientsCollection() {
 }
 
 /**
+ * Lay collection salary_simple_roles
+ */
+function getSalarySimpleRolesCollection() {
+  const db = getDatabase();
+  return db.collection('salary_simple_roles');
+}
+
+/**
  * Lay collection salary_eligible_roles
  */
 function getSalaryEligibleRolesCollection() {
@@ -127,6 +135,79 @@ export async function deleteCoefficientForRole(roleId) {
     return result.deletedCount > 0;
   } catch (error) {
     console.error('[MongoDB] Error deleting coefficient:', error);
+    throw error;
+  }
+}
+
+// ==================== FIXED ROLE SALARIES ====================
+
+/**
+ * Dat luong co dinh cho role
+ * @param {string} roleId
+ * @param {string} roleName
+ * @param {number} amount
+ * @param {string} updatedBy
+ */
+export async function setSimpleSalaryForRole(roleId, roleName, amount, updatedBy) {
+  try {
+    const collection = getSalarySimpleRolesCollection();
+    const result = await collection.updateOne(
+      { roleId },
+      {
+        $set: {
+          roleId,
+          roleName,
+          amount,
+          updatedBy,
+          updatedAt: new Date()
+        }
+      },
+      { upsert: true }
+    );
+
+    console.log(`[MongoDB] Set fixed salary ${amount} for role ${roleName}`);
+    return result;
+  } catch (error) {
+    console.error('[MongoDB] Error setting fixed role salary:', error);
+    throw error;
+  }
+}
+
+/**
+ * Lay luong co dinh cua role
+ * @param {string} roleId
+ */
+export async function getSimpleSalaryByRole(roleId) {
+  try {
+    return await getSalarySimpleRolesCollection().findOne({ roleId });
+  } catch (error) {
+    console.error('[MongoDB] Error getting fixed role salary:', error);
+    throw error;
+  }
+}
+
+/**
+ * Lay tat ca luong co dinh theo role
+ */
+export async function getAllSimpleRoleSalaries() {
+  try {
+    return await getSalarySimpleRolesCollection().find({}).toArray();
+  } catch (error) {
+    console.error('[MongoDB] Error getting fixed role salaries:', error);
+    throw error;
+  }
+}
+
+/**
+ * Xoa luong co dinh cua role
+ * @param {string} roleId
+ */
+export async function deleteSimpleSalaryForRole(roleId) {
+  try {
+    const result = await getSalarySimpleRolesCollection().deleteOne({ roleId });
+    return result.deletedCount > 0;
+  } catch (error) {
+    console.error('[MongoDB] Error deleting fixed role salary:', error);
     throw error;
   }
 }

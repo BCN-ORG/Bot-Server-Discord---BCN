@@ -16,6 +16,7 @@ import * as salaryPayDebt from './commands/salaryPayDebt.js';
 import * as salaryPreview from './commands/salaryPreview.js';
 import * as salaryCheck from './commands/salaryCheck.js';
 import * as salaryInfo from './commands/salaryInfo.js';
+import * as salarySimpleRole from './commands/salarySimpleRole.js';
 import { initPayrollScheduler } from './scheduler.js';
 import { initNotificationScheduler } from './notificationScheduler.js';
 
@@ -32,6 +33,7 @@ export {
   salaryPreview,
   salaryCheck,
   salaryInfo,
+  salarySimpleRole,
   initPayrollScheduler,
   initNotificationScheduler
 };

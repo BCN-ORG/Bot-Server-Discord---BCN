@@ -3,8 +3,14 @@
  * Tinh toan preview truoc khi tra luong va kiem tra so du
  */
 
-import { getAllEligibleRoles, getAllCoefficients, getSalaryConfig } from '../../../database/payroll.js';
+import {
+  getAllEligibleRoles,
+  getAllCoefficients,
+  getAllSimpleRoleSalaries,
+  getSalaryConfig
+} from '../../../database/payroll.js';
 import { getBalance } from './apiClient.js';
+import { calculateMemberSalary } from './salaryCalculation.js';
 
 /**
  * Tinh ngay tra luong tiep theo dua tren config
@@ -60,11 +66,13 @@ export async function generatePayrollPreview(client) {
     
     // 2. Lay danh sach role duoc tra luong
     const eligibleRoles = await getAllEligibleRoles();
-    if (eligibleRoles.length === 0) {
+    const simpleRoleSalaries = await getAllSimpleRoleSalaries();
+    if (eligibleRoles.length === 0 && simpleRoleSalaries.length === 0) {
       console.log('[Payroll Notification] No eligible roles configured');
       return {
         nextPayrollDate: null,
         totalCoinsNeeded: 0,
+        fixedSalaryCoins: 0,
         currentBalance: 0,
         deficit: 0,
         memberCount: 0,
@@ -72,20 +80,27 @@ export async function generatePayrollPreview(client) {
       };
     }
     
-    const eligibleRoleIds = eligibleRoles.map(r => r.roleId);
-    console.log(`[Payroll Notification] Processing ${eligibleRoles.length} eligible roles`);
+    const eligibleRoleIds = [
+      ...new Set([...eligibleRoles, ...simpleRoleSalaries].map(role => role.roleId))
+    ];
+    const coefficientRoleIds = new Set(eligibleRoles.map(role => role.roleId));
+    console.log(`[Payroll Notification] Processing ${eligibleRoleIds.length} payable roles`);
     
     // 3. Lay day du members trong guild
     const guildMembers = await guild.members.fetch();
     console.log(`[Payroll Notification] Fetched ${guildMembers.size} guild members`);
     
     const activeEligibleRoleIds = new Set();
+    const activeCoefficientRoleIds = new Set();
     for (const roleId of eligibleRoleIds) {
       if (!guild.roles.cache.has(roleId)) {
         console.warn(`[WARN] Role ${roleId} not found in guild`);
         continue;
       }
       activeEligibleRoleIds.add(roleId);
+      if (coefficientRoleIds.has(roleId)) {
+        activeCoefficientRoleIds.add(roleId);
+      }
     }
     
     // 4. Loc va deduplicate members theo Discord user ID
@@ -108,58 +123,44 @@ export async function generatePayrollPreview(client) {
     for (const coef of coefficients) {
       coefficientMap.set(coef.roleId, coef.coefficient);
     }
+    const fixedSalaryMap = new Map(
+      simpleRoleSalaries.map(role => [role.roleId, role.amount])
+    );
     
     // 6. Tinh toan cho tung member
     const breakdown = [];
     let totalCoinsNeeded = 0;
+    let fixedSalaryCoins = 0;
     
     for (const member of uniqueMembers.values()) {
       const userId = member.user.id;
       
-      // Tinh luong dua tren TAT CA roles (tru @everyone va bot roles)
-      let total = 0;
-      const memberRoles = [];
-      
-      for (const [roleId, role] of member.roles.cache) {
-        // Bo qua @everyone role
-        if (role.id === member.guild.id) continue;
-        
-        // Bo qua bot roles
-        if (role.managed) continue;
-        
-        const coefficient = coefficientMap.get(roleId) ?? 1;
-        total += coefficient;
-        
-        memberRoles.push({
-          roleId: role.id,
-          roleName: role.name,
-          coefficient
-        });
-      }
-      
-      if (memberRoles.length === 0) {
-        continue;
-      }
-      
-      // Cap at 100
-      const amount = Math.min(total, 100);
-      
-      // Log chi tiet tung role
-      const roleBreakdown = memberRoles.map(r => `${r.roleName}(${r.coefficient})`).join(' + ');
-      console.log(`[Preview] ${member.user.tag}: ${memberRoles.length} roles counted`);
-      console.log(`[Preview]   Formula: ${roleBreakdown} = ${total} coins${total > 100 ? ' (capped to 100)' : ''}`);
-      console.log(`[Preview]   Final amount: ${amount} coins`);
+      const payableRoles = member.roles.cache.some(role => activeEligibleRoleIds.has(role.id));
+      if (!payableRoles) continue;
+
+      const hasCoefficientEligibility = member.roles.cache.some(role =>
+        activeCoefficientRoleIds.has(role.id)
+      );
+      const salary = calculateMemberSalary(
+        member,
+        coefficientMap,
+        fixedSalaryMap,
+        hasCoefficientEligibility
+      );
+      if (salary.amount === 0) continue;
       
       breakdown.push({
         userId,
         username: member.user.tag,
-        amount,
-        rawAmount: total,
-        isCapped: total > 100,
-        roles: memberRoles
+        amount: salary.amount,
+        rawAmount: salary.rawAmount,
+        isCapped: salary.isCapped,
+        fixedSalaryAmount: salary.fixedSalaryIncluded,
+        roles: salary.roleDetails
       });
       
-      totalCoinsNeeded += amount;
+      totalCoinsNeeded += salary.amount;
+      fixedSalaryCoins += salary.fixedSalaryIncluded;
     }
     
     console.log(`[Payroll Notification] Total coins needed: ${totalCoinsNeeded}`);
@@ -187,6 +188,7 @@ export async function generatePayrollPreview(client) {
     return {
       nextPayrollDate,
       totalCoinsNeeded,
+      fixedSalaryCoins,
       currentBalance,
       deficit,
       memberCount: uniqueMembers.size,
