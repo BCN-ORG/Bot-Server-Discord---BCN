@@ -4,10 +4,9 @@ import * as schedulerFeature from './features/scheduler/index.js';
 import * as payrollFeature from './features/payroll/index.js';
 import * as reactionRolesFeature from './features/reactionRoles/index.js';
 import * as temporaryRolesFeature from './features/temporaryRoles/index.js';
-import * as fineReportsFeature from './features/fineReports/index.js';
 import * as kickManagerFeature from './features/kickManager/index.js';
 import * as coinRandomFeature from './features/coinRandom/index.js';
-import * as violationsFeature from './features/violations/index.js';
+import * as fineFeature from './features/fine/index.js';
 import {
   execute as kickExecute,
   executeRollback as kickRollbackExecute,
@@ -27,7 +26,6 @@ export async function registerCommands(token, clientId, guildId) {
     schedulerFeature.data.toJSON(),
     reactionRolesFeature.data.toJSON(),
     temporaryRolesFeature.data.toJSON(),
-    fineReportsFeature.data.toJSON(),
     kickManagerFeature.data.toJSON(),
     coinRandomFeature.data.toJSON(),
     kickData.toJSON(),
@@ -45,13 +43,13 @@ export async function registerCommands(token, clientId, guildId) {
     payrollFeature.salaryPreview.data.toJSON(),
     payrollFeature.salaryCheck.data.toJSON(),
     payrollFeature.salaryInfo.data.toJSON(),
-    violationsFeature.violationAuthorizedRoles.data.toJSON(),
-    violationsFeature.violationCreate.data.toJSON(),
-    violationsFeature.violationCheck.data.toJSON(),
-    violationsFeature.violationList.data.toJSON(),
-    violationsFeature.violationConfirmPayment.data.toJSON(),
-    violationsFeature.violationReminderTimes.data.toJSON(),
-    violationsFeature.violationSetChannel.data.toJSON()
+    fineFeature.fineAuthorizedRoles.data.toJSON(),
+    fineFeature.fineCreate.data.toJSON(),
+    fineFeature.fineCheck.data.toJSON(),
+    fineFeature.fineList.data.toJSON(),
+    fineFeature.fineConfirmPayment.data.toJSON(),
+    fineFeature.fineReminderTimes.data.toJSON(),
+    fineFeature.fineAnnouncementChannels.data.toJSON()
   ];
 
   const rest = new REST({ version: '10' }).setToken(token);
@@ -95,8 +93,33 @@ export function setupInteractionHandlers(client) {
         await temporaryRolesFeature.execute(interaction);
       }
 
-      if (interaction.isChatInputCommand() && interaction.commandName === 'fine') {
-        await fineReportsFeature.execute(interaction);
+      // Fine system commands
+      if (interaction.isChatInputCommand() && interaction.commandName === 'fine-authorized-roles') {
+        await fineFeature.fineAuthorizedRoles.execute(interaction);
+      }
+
+      if (interaction.isChatInputCommand() && interaction.commandName === 'fine-create') {
+        await fineFeature.fineCreate.execute(interaction);
+      }
+
+      if (interaction.isChatInputCommand() && interaction.commandName === 'fine-check') {
+        await fineFeature.fineCheck.execute(interaction);
+      }
+
+      if (interaction.isChatInputCommand() && interaction.commandName === 'fine-list') {
+        await fineFeature.fineList.execute(interaction);
+      }
+
+      if (interaction.isChatInputCommand() && interaction.commandName === 'fine-confirm-payment') {
+        await fineFeature.fineConfirmPayment.execute(interaction);
+      }
+
+      if (interaction.isChatInputCommand() && interaction.commandName === 'fine-reminder-times') {
+        await fineFeature.fineReminderTimes.execute(interaction);
+      }
+
+      if (interaction.isChatInputCommand() && interaction.commandName === 'fine-announcement-channels') {
+        await fineFeature.fineAnnouncementChannels.execute(interaction);
       }
 
       if (interaction.isChatInputCommand() && interaction.commandName === 'kick-manager') {
@@ -183,41 +206,6 @@ export function setupInteractionHandlers(client) {
         await payrollFeature.salaryInfo.execute(interaction, client);
       }
 
-      // Xu ly lenh /violation-authorized-roles
-      if (interaction.isChatInputCommand() && interaction.commandName === 'violation-authorized-roles') {
-        await violationsFeature.violationAuthorizedRoles.execute(interaction);
-      }
-
-      // Xu ly lenh /violation-create
-      if (interaction.isChatInputCommand() && interaction.commandName === 'violation-create') {
-        await violationsFeature.violationCreate.execute(interaction);
-      }
-
-      // Xu ly lenh /violation-check
-      if (interaction.isChatInputCommand() && interaction.commandName === 'violation-check') {
-        await violationsFeature.violationCheck.execute(interaction);
-      }
-
-      // Xu ly lenh /violation-list
-      if (interaction.isChatInputCommand() && interaction.commandName === 'violation-list') {
-        await violationsFeature.violationList.execute(interaction);
-      }
-
-      // Xu ly lenh /violation-confirm-payment
-      if (interaction.isChatInputCommand() && interaction.commandName === 'violation-confirm-payment') {
-        await violationsFeature.violationConfirmPayment.execute(interaction);
-      }
-
-      // Xu ly lenh /violation-reminder-times
-      if (interaction.isChatInputCommand() && interaction.commandName === 'violation-reminder-times') {
-        await violationsFeature.violationReminderTimes.execute(interaction);
-      }
-
-      // Xu ly lenh /violation-set-channel
-      if (interaction.isChatInputCommand() && interaction.commandName === 'violation-set-channel') {
-        await violationsFeature.violationSetChannel.execute(interaction);
-      }
-
       // Xu ly nut bam mo modal
       if (interaction.isButton() && interaction.customId === 'open_rename_modal') {
         const modal = renameFeature.createRenameModal();
@@ -254,12 +242,9 @@ export function setupInteractionHandlers(client) {
         await renameFeature.handleModalSubmit(interaction);
       }
 
-      if (interaction.isModalSubmit() && interaction.customId.startsWith('fine_report_modal:')) {
-        await fineReportsFeature.handleModalSubmit(interaction);
-      }
-
-      if (interaction.isModalSubmit() && interaction.customId.startsWith('fine_appeal_modal:')) {
-        await fineReportsFeature.handleAppealModalSubmit(interaction);
+      // Handle fine create modal
+      if (interaction.isModalSubmit() && interaction.customId.startsWith('fine_create_modal:')) {
+        await fineFeature.handleFineModalSubmit(interaction, client);
       }
     } catch (error) {
       console.error('[ERROR] Loi khi xu ly interaction:', error);

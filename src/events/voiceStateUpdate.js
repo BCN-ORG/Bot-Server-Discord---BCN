@@ -1,7 +1,7 @@
 import { checkMemberNickname } from '../services/nameValidationService.js';
 import { ButtonBuilder, ButtonStyle, ActionRowBuilder, EmbedBuilder } from 'discord.js';
 import { EMOJIS } from '../constants/emojis.js';
-import { getViolationsByUser } from '../database/violations.js';
+import { checkAndNotifyVoiceJoin } from '../features/fine/index.js';
 
 /**
  * Xử lý khi member join/leave voice channel
@@ -33,8 +33,8 @@ export async function handleVoiceStateUpdate(oldState, newState) {
         await sendNameValidationReminder(member, newState.channel);
       }
 
-      // Check for unpaid violations (independent of name validation)
-      await checkAndNotifyUnpaidViolations(member, newState.channel);
+      // Check for unpaid fines (independent of name validation)
+      await checkAndNotifyUnpaidFines(member, newState.channel);
     }
 
     // Xử lý khi member đã đổi tên hợp lệ và đang bị mute/deafen
@@ -102,21 +102,11 @@ async function sendNameValidationReminder(member, channel) {
 }
 
 /**
- * Check and notify unpaid violations when joining voice
- * @param {GuildMember} member 
- * @param {VoiceChannel} voiceChannel 
+ * Check and notify unpaid fines when joining voice
  */
-async function checkAndNotifyUnpaidViolations(member, voiceChannel) {
+async function checkAndNotifyUnpaidFines(member, voiceChannel) {
   try {
-    // Get unpaid violations for this user
-    const unpaidViolations = await getViolationsByUser(member.id, false);
-
-    if (unpaidViolations.length === 0) {
-      return; // No unpaid violations
-    }
-
     // Find text channel associated with voice channel
-    // Try to find a channel with same name or parent category
     let textChannel = null;
     
     // Try same name
@@ -134,46 +124,13 @@ async function checkAndNotifyUnpaidViolations(member, voiceChannel) {
 
     // If still not found, skip notification
     if (!textChannel) {
-      console.log(`[Violation] No text channel found for voice channel ${voiceChannel.name}`);
+      console.log(`[Fine] No text channel found for voice channel ${voiceChannel.name}`);
       return;
     }
 
-    // Calculate total amount
-    const totalAmount = unpaidViolations.reduce((sum, v) => sum + v.amount, 0);
-
-    // Build embed
-    const embed = new EmbedBuilder()
-      .setColor('#ff0000')
-      .setTitle('⚠️ Nhắc nhở nợ phạt')
-      .setDescription(
-        `${member} có **${unpaidViolations.length}** biên bản phạt chưa thanh toán!\n\n` +
-        `💰 **Tổng số tiền:** ${totalAmount} coins\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n\n`
-      )
-      .setTimestamp();
-
-    // Add violations (max 5 to avoid too long message)
-    const displayViolations = unpaidViolations.slice(0, 5);
-    displayViolations.forEach((v, index) => {
-      embed.addFields({
-        name: `${index + 1}. ${v.violationId}`,
-        value: `• **Lý do:** ${v.reason}\n• **Số tiền:** ${v.amount} coins`,
-        inline: false
-      });
-    });
-
-    if (unpaidViolations.length > 5) {
-      embed.setFooter({ text: `... và ${unpaidViolations.length - 5} biên bản khác. Dùng /violation-check để xem chi tiết` });
-    } else {
-      embed.setFooter({ text: 'Dùng /violation-confirm-payment để thanh toán' });
-    }
-
-    // Send to text channel (public notification)
-    await textChannel.send({ embeds: [embed] });
-    console.log(`[Violation] Sent unpaid violations notification for ${member.user.tag} to ${textChannel.name}`);
-
+    // Call fine service to check and notify
+    await checkAndNotifyVoiceJoin(member, textChannel);
   } catch (error) {
-    console.error('[Violation] Error checking unpaid violations:', error);
+    console.error('[Fine] Error checking unpaid fines:', error);
   }
 }
-

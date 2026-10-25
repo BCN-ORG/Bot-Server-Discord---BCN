@@ -15,7 +15,7 @@ import {
   handleReactionRoleRemove,
   initReactionRoleScheduler
 } from './features/reactionRoles/index.js';
-import { initViolationReminderScheduler } from './features/violations/index.js';
+import { initFineReminderScheduler } from './features/fine/index.js';
 import { connectMongoDB } from './database/mongodb.js';
 import { connectBCN } from './database/bcn.js';
 import { initPayrollScheduler, initNotificationScheduler } from './features/payroll/index.js';
@@ -77,9 +77,9 @@ client.once('ready', async () => {
   // Kết nối MongoDB (discord_bot database)
   try {
     await connectMongoDB();
-    // Initialize violation indexes
-    const { initViolationIndexes } = await import('./database/violations.js');
-    await initViolationIndexes();
+    // Initialize fine indexes
+    const { initFineIndexes } = await import('./database/fines.js');
+    await initFineIndexes();
   } catch (error) {
     console.error('[ERROR] Không thể kết nối MongoDB. Bot sẽ thoát.');
     process.exit(1);
@@ -96,8 +96,8 @@ client.once('ready', async () => {
   // Đăng ký lệnh slash commands
   await registerCommands(DISCORD_TOKEN, CLIENT_ID, GUILD_ID);
   
-  // Khởi động violation reminder scheduler (thay thế violation checker cũ)
-  await initViolationReminderScheduler(client);
+  // Khởi động fine reminder scheduler
+  await initFineReminderScheduler(client);
   
   // Khoi dong payroll scheduler
   await initPayrollScheduler(client);
