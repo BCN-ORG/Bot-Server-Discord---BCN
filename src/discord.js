@@ -7,6 +7,7 @@ import * as temporaryRolesFeature from './features/temporaryRoles/index.js';
 import * as fineReportsFeature from './features/fineReports/index.js';
 import * as kickManagerFeature from './features/kickManager/index.js';
 import * as coinRandomFeature from './features/coinRandom/index.js';
+import * as violationsFeature from './features/violations/index.js';
 import {
   execute as kickExecute,
   executeRollback as kickRollbackExecute,
@@ -43,7 +44,14 @@ export async function registerCommands(token, clientId, guildId) {
     payrollFeature.salaryPayDebt.data.toJSON(),
     payrollFeature.salaryPreview.data.toJSON(),
     payrollFeature.salaryCheck.data.toJSON(),
-    payrollFeature.salaryInfo.data.toJSON()
+    payrollFeature.salaryInfo.data.toJSON(),
+    violationsFeature.violationAuthorizedRoles.data.toJSON(),
+    violationsFeature.violationCreate.data.toJSON(),
+    violationsFeature.violationCheck.data.toJSON(),
+    violationsFeature.violationList.data.toJSON(),
+    violationsFeature.violationConfirmPayment.data.toJSON(),
+    violationsFeature.violationReminderTimes.data.toJSON(),
+    violationsFeature.violationSetChannel.data.toJSON()
   ];
 
   const rest = new REST({ version: '10' }).setToken(token);
@@ -173,6 +181,41 @@ export function setupInteractionHandlers(client) {
       // Xu ly lenh /salary-info
       if (interaction.isChatInputCommand() && interaction.commandName === 'salary-info') {
         await payrollFeature.salaryInfo.execute(interaction, client);
+      }
+
+      // Xu ly lenh /violation-authorized-roles
+      if (interaction.isChatInputCommand() && interaction.commandName === 'violation-authorized-roles') {
+        await violationsFeature.violationAuthorizedRoles.execute(interaction);
+      }
+
+      // Xu ly lenh /violation-create
+      if (interaction.isChatInputCommand() && interaction.commandName === 'violation-create') {
+        await violationsFeature.violationCreate.execute(interaction);
+      }
+
+      // Xu ly lenh /violation-check
+      if (interaction.isChatInputCommand() && interaction.commandName === 'violation-check') {
+        await violationsFeature.violationCheck.execute(interaction);
+      }
+
+      // Xu ly lenh /violation-list
+      if (interaction.isChatInputCommand() && interaction.commandName === 'violation-list') {
+        await violationsFeature.violationList.execute(interaction);
+      }
+
+      // Xu ly lenh /violation-confirm-payment
+      if (interaction.isChatInputCommand() && interaction.commandName === 'violation-confirm-payment') {
+        await violationsFeature.violationConfirmPayment.execute(interaction);
+      }
+
+      // Xu ly lenh /violation-reminder-times
+      if (interaction.isChatInputCommand() && interaction.commandName === 'violation-reminder-times') {
+        await violationsFeature.violationReminderTimes.execute(interaction);
+      }
+
+      // Xu ly lenh /violation-set-channel
+      if (interaction.isChatInputCommand() && interaction.commandName === 'violation-set-channel') {
+        await violationsFeature.violationSetChannel.execute(interaction);
       }
 
       // Xu ly nut bam mo modal

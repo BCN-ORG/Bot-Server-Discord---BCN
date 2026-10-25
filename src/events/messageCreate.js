@@ -1,5 +1,4 @@
 import { checkMemberNickname } from '../services/nameValidationService.js';
-import { getViolation, ViolationStatus } from '../database/violations.js';
 import { ButtonBuilder, ButtonStyle, ActionRowBuilder, EmbedBuilder } from 'discord.js';
 import { EMOJIS } from '../constants/emojis.js';
 
@@ -34,23 +33,17 @@ export async function handleMessageCreate(message) {
         console.error('[ERROR] Could not delete message:', error.message);
       }
 
-      // Kiểm tra có vi phạm đang pending không
-      const violation = await getViolation(message.guild.id, member.id);
+      // Kiểm tra cooldown (tránh spam)
+      const lastReminder = reminderCache.get(member.id);
+      const now = Date.now();
       
-      if (violation && violation.status === ViolationStatus.PENDING) {
-        // Kiểm tra cooldown (tránh spam)
-        const lastReminder = reminderCache.get(member.id);
-        const now = Date.now();
+      if (!lastReminder || (now - lastReminder) > REMINDER_COOLDOWN) {
+        // Gửi thông báo nhắc nhở
+        await sendMessageWarning(member, message.channel);
         
-        if (!lastReminder || (now - lastReminder) > REMINDER_COOLDOWN) {
-          // Gửi thông báo nhắc nhở vào channel
-          await sendMessageWarning(member, message.channel);
-          
-          // Cập nhật cache
-          reminderCache.set(member.id, now);
-          
-          console.log(`[INFO] Sent message warning to ${member.user.tag}`);
-        }
+        // Cập nhật cache
+        reminderCache.set(member.id, now);
+        console.log(`[INFO] Sent message warning to ${member.user.tag}`);
       }
     }
   } catch (error) {
@@ -78,12 +71,11 @@ async function sendMessageWarning(member, channel) {
       .setDescription(
         `Tin nhắn của bạn trong **#${channel.name}** đã bị xóa vì tên hiển thị không hợp lệ!\n\n` +
         `${EMOJIS.INFO} **Vui lòng đổi tên theo quy định:**\n` +
-        `• Họ và tên đầy đủ (1-5 từ)\n` +
+        `• Họ và tên đầy đủ (2-5 từ)\n` +
         `• Viết hoa chữ cái đầu mỗi từ\n` +
         `• Chỉ dùng chữ cái (có dấu)\n` +
         `• Ví dụ: Nguyễn Văn A\n\n` +
-        `${EMOJIS.WARNING} **Bạn có 48 giờ để đổi tên.**\n` +
-        `Sau thời gian này bạn sẽ bị kick khỏi server.`
+        `💡 Sau khi đổi tên hợp lệ, bạn có thể gửi tin nhắn bình thường.`
       )
       .setTimestamp()
       .setFooter({ text: `Server: ${member.guild.name}` });
@@ -118,4 +110,3 @@ async function sendMessageWarning(member, channel) {
     console.error('[ERROR] Could not send message warning:', error);
   }
 }
-

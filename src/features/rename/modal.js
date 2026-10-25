@@ -1,6 +1,6 @@
 import { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder } from 'discord.js';
 import { validateName } from './validate.js';
-import { checkMemberNickname, handleValidNickname } from '../../services/nameValidationService.js';
+import { checkMemberNickname } from '../../services/nameValidationService.js';
 
 /**
  * Tao modal form nhap ho ten
@@ -56,8 +56,7 @@ export async function handleModalSubmit(interaction) {
     // Doi nickname
     await interaction.member.setNickname(validation.normalized);
 
-    // Dong vi pham neu co
-    await handleValidNickname(interaction.member);
+    // Không cần đóng violation vì đã xóa hệ thống violation cũ
 
     // Thong bao thanh cong
     const successEmbed = new EmbedBuilder()

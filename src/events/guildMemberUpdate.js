@@ -1,4 +1,4 @@
-import { checkMemberNickname, handleInvalidNickname, handleValidNickname } from '../services/nameValidationService.js';
+import { checkMemberNickname } from '../services/nameValidationService.js';
 import { EmbedBuilder } from 'discord.js';
 import { EMOJIS } from '../constants/emojis.js';
 
@@ -26,8 +26,7 @@ export async function handleGuildMemberUpdate(oldMember, newMember) {
     await logNicknameChange(newMember, oldNickname, newNickname, valid);
 
     if (valid) {
-      // Tên đúng - đóng vi phạm nếu có
-      await handleValidNickname(newMember);
+      // Tên đúng - không cần xử lý violation (đã xóa hệ thống cũ)
       
       // Nếu member đang ở trong voice channel và bị mute/deafen, bỏ chặn
       if (newMember.voice.channel && (newMember.voice.serverMute || newMember.voice.serverDeaf)) {
@@ -40,8 +39,7 @@ export async function handleGuildMemberUpdate(oldMember, newMember) {
         }
       }
     } else {
-      // Tên sai - xử lý vi phạm
-      await handleInvalidNickname(newMember, newNickname);
+      // Tên sai - chỉ gửi warning, không tạo violation
       
       // Nếu member đang ở trong voice channel, chặn nói và nghe
       if (newMember.voice.channel) {

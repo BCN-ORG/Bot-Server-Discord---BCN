@@ -1,5 +1,5 @@
 import { ButtonBuilder, ButtonStyle, ActionRowBuilder, EmbedBuilder } from 'discord.js';
-import { checkMemberNickname, handleInvalidNickname } from '../services/nameValidationService.js';
+import { checkMemberNickname } from '../services/nameValidationService.js';
 
 /**
  * Xu ly khi member moi vao server
@@ -11,9 +11,40 @@ export async function handleGuildMemberAdd(member) {
     const { valid, nickname } = await checkMemberNickname(member);
 
     if (!valid) {
-      // Ten sai - xu ly vi pham
-      await handleInvalidNickname(member, nickname);
-      console.log(`[INFO] New member ${member.user.tag} has invalid name, violation created`);
+      // Tên sai - gửi thông báo hướng dẫn đổi tên (không tạo violation nữa)
+      console.log(`[INFO] New member ${member.user.tag} has invalid name`);
+      
+      // Send rename instructions via DM
+      try {
+        const button = new ButtonBuilder()
+          .setCustomId('open_rename_modal')
+          .setLabel('Đổi tên ngay')
+          .setStyle(ButtonStyle.Primary);
+
+        const row = new ActionRowBuilder().addComponents(button);
+
+        const embed = new EmbedBuilder()
+          .setColor('#ff9900')
+          .setTitle('⚠️ Tên hiển thị không hợp lệ')
+          .setDescription(
+            `Chào mừng bạn đến với server!\n\n` +
+            `Tên hiển thị của bạn (\`${nickname}\`) không hợp lệ.\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `📋 **Quy định đặt tên:**\n` +
+            `• Họ và tên đầy đủ (2-5 từ)\n` +
+            `• Viết hoa chữ cái đầu mỗi từ\n` +
+            `• Chỉ dùng chữ cái (có dấu)\n` +
+            `• Ví dụ: Nguyễn Văn A\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `Vui lòng dùng lệnh \`/rename\` hoặc bấm nút bên dưới để đổi tên!`
+          )
+          .setTimestamp();
+
+        await member.send({ embeds: [embed], components: [row] });
+        console.log(`[INFO] Sent rename instructions to ${member.user.tag}`);
+      } catch (error) {
+        console.log('[INFO] Could not send DM (DM disabled)');
+      }
     }
 
     // Gui thong bao chao mung vao kenh huong dan

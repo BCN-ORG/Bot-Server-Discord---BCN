@@ -1,7 +1,7 @@
 import { checkMemberNickname } from '../services/nameValidationService.js';
-import { getViolation, ViolationStatus } from '../database/violations.js';
 import { ButtonBuilder, ButtonStyle, ActionRowBuilder, EmbedBuilder } from 'discord.js';
 import { EMOJIS } from '../constants/emojis.js';
+import { getViolationsByUser } from '../database/violations.js';
 
 /**
  * Xử lý khi member join/leave voice channel
@@ -29,14 +29,12 @@ export async function handleVoiceStateUpdate(oldState, newState) {
           console.error('[ERROR] Could not mute/deafen member:', error.message);
         }
 
-        // Kiểm tra có vi phạm đang pending không
-        const violation = await getViolation(newState.guild.id, member.id);
-
-        if (violation && violation.status === ViolationStatus.PENDING) {
-          // Có vi phạm - gửi thông báo nhắc nhở
-          await sendVoiceJoinReminder(member, newState.channel);
-        }
+        // Send name validation reminder
+        await sendNameValidationReminder(member, newState.channel);
       }
+
+      // Check for unpaid violations (independent of name validation)
+      await checkAndNotifyUnpaidViolations(member, newState.channel);
     }
 
     // Xử lý khi member đã đổi tên hợp lệ và đang bị mute/deafen
@@ -61,11 +59,11 @@ export async function handleVoiceStateUpdate(oldState, newState) {
 }
 
 /**
- * Gửi thông báo nhắc nhở khi join voice
+ * Gửi thông báo nhắc nhở về tên không hợp lệ khi join voice
  * @param {GuildMember} member 
  * @param {VoiceChannel} channel 
  */
-async function sendVoiceJoinReminder(member, channel) {
+async function sendNameValidationReminder(member, channel) {
   try {
     const button = new ButtonBuilder()
       .setCustomId('open_rename_modal')
@@ -97,9 +95,85 @@ async function sendVoiceJoinReminder(member, channel) {
     // Gửi DM cho member
     await member.send({ embeds: [embed], components: [row] });
 
-    console.log(`[INFO] Sent voice join reminder to ${member.user.tag}`);
+    console.log(`[INFO] Sent name validation reminder to ${member.user.tag}`);
   } catch (error) {
-    console.log('[INFO] Could not send voice join reminder (DM disabled)');
+    console.log('[INFO] Could not send name validation reminder (DM disabled)');
+  }
+}
+
+/**
+ * Check and notify unpaid violations when joining voice
+ * @param {GuildMember} member 
+ * @param {VoiceChannel} voiceChannel 
+ */
+async function checkAndNotifyUnpaidViolations(member, voiceChannel) {
+  try {
+    // Get unpaid violations for this user
+    const unpaidViolations = await getViolationsByUser(member.id, false);
+
+    if (unpaidViolations.length === 0) {
+      return; // No unpaid violations
+    }
+
+    // Find text channel associated with voice channel
+    // Try to find a channel with same name or parent category
+    let textChannel = null;
+    
+    // Try same name
+    textChannel = member.guild.channels.cache.find(
+      ch => ch.isTextBased() && 
+           ch.name.toLowerCase().includes(voiceChannel.name.toLowerCase())
+    );
+
+    // If not found, try parent category's channels
+    if (!textChannel && voiceChannel.parent) {
+      textChannel = voiceChannel.parent.children.cache.find(
+        ch => ch.isTextBased() && ch.type === 0 // GuildText
+      );
+    }
+
+    // If still not found, skip notification
+    if (!textChannel) {
+      console.log(`[Violation] No text channel found for voice channel ${voiceChannel.name}`);
+      return;
+    }
+
+    // Calculate total amount
+    const totalAmount = unpaidViolations.reduce((sum, v) => sum + v.amount, 0);
+
+    // Build embed
+    const embed = new EmbedBuilder()
+      .setColor('#ff0000')
+      .setTitle('⚠️ Nhắc nhở nợ phạt')
+      .setDescription(
+        `${member} có **${unpaidViolations.length}** biên bản phạt chưa thanh toán!\n\n` +
+        `💰 **Tổng số tiền:** ${totalAmount} coins\n\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n\n`
+      )
+      .setTimestamp();
+
+    // Add violations (max 5 to avoid too long message)
+    const displayViolations = unpaidViolations.slice(0, 5);
+    displayViolations.forEach((v, index) => {
+      embed.addFields({
+        name: `${index + 1}. ${v.violationId}`,
+        value: `• **Lý do:** ${v.reason}\n• **Số tiền:** ${v.amount} coins`,
+        inline: false
+      });
+    });
+
+    if (unpaidViolations.length > 5) {
+      embed.setFooter({ text: `... và ${unpaidViolations.length - 5} biên bản khác. Dùng /violation-check để xem chi tiết` });
+    } else {
+      embed.setFooter({ text: 'Dùng /violation-confirm-payment để thanh toán' });
+    }
+
+    // Send to text channel (public notification)
+    await textChannel.send({ embeds: [embed] });
+    console.log(`[Violation] Sent unpaid violations notification for ${member.user.tag} to ${textChannel.name}`);
+
+  } catch (error) {
+    console.error('[Violation] Error checking unpaid violations:', error);
   }
 }
 
