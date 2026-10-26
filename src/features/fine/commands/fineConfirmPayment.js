@@ -28,14 +28,12 @@ export async function execute(interaction, client) {
         .setColor('#00ff00')
         .setTitle('✅ Thanh Toán Thành Công')
         .setDescription(
-          `Đã thanh toán biên bản phạt!\n\n` +
-          `━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `Đã thanh toán biên bản phạt!\n` +
           `📋 **Mã biên bản:** ${fine.fineId}\n` +
           `💰 **Số tiền:** ${fine.amount} coins\n` +
           `📝 **Lý do:** ${fine.reason}\n` +
           `👤 **Người thanh toán:** ${interaction.user}\n` +
-          `📄 **Mã giao dịch:** ${result.reference}\n\n` +
-          `━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `📄 **Mã giao dịch:** ${result.reference}\n` +
           (result.duplicate ? '⚠️ *Biên bản này đã được thanh toán trước đó*' : '✅ *Giao dịch đã hoàn tất*')
         )
         .setTimestamp();
@@ -46,10 +44,10 @@ export async function execute(interaction, client) {
         .setColor('#ff0000')
         .setTitle('❌ Thanh Toán Thất Bại')
         .setDescription(
-          `Không thể thanh toán biên bản phạt!\n\n` +
-          `━━━━━━━━━━━━━━━━━━━━\n\n` +
-          `**Lỗi:** ${result.error}\n\n` +
-          `━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `Không thể thanh toán biên bản phạt!\n` +
+          `━━━━━━━━━━━━━━━━━━━━\n` +
+          `**Lỗi:** ${result.error}\n` +
+          `━━━━━━━━━━━━━━━━━━━━\n` +
           `💡 Vui lòng kiểm tra:\n` +
           `• Mã biên bản có đúng không?\n` +
           `• Bạn có đủ coin không?\n` +

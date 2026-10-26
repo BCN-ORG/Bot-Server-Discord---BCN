@@ -73,7 +73,7 @@ export async function execute(interaction) {
           .setColor('#00ff00')
           .setTitle('✅ Thêm Giờ Nhắc Thành Công')
           .setDescription(
-            `Đã thêm giờ nhắc: **${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}**\n\n` +
+            `Đã thêm giờ nhắc: **${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}**\n` +
             `Bot sẽ nhắc nhở các thành viên có biên bản phạt chưa thanh toán vào giờ này hàng ngày.`
           )
           .setTimestamp();
@@ -135,8 +135,8 @@ export async function execute(interaction) {
         .setColor('#0099ff')
         .setTitle('📋 Danh Sách Giờ Nhắc Hàng Ngày')
         .setDescription(
-          `${timeList}\n\n` +
-          `━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `${timeList}\n` +
+          `━━━━━━━━━━━━━━━━━━━━\n` +
           `💡 Bot sẽ tự động nhắc nhở các thành viên có biên bản phạt chưa thanh toán vào các giờ trên.`
         )
         .setFooter({ text: `Tổng: ${config.reminderTimes.length} giờ` })

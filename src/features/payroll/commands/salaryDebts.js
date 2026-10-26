@@ -46,9 +46,9 @@ export async function execute(interaction) {
       const unpaidList = unpaidDebts.slice(0, 10).map(debt => {
         const dateStr = format(new Date(debt.payrollDate), 'dd/MM/yyyy HH:mm');
         return `**${debt.debtId}** - ${dateStr}\n└ Thiếu: ${debt.deficit} coins | ${debt.memberCount} người`;
-      }).join('\n\n');
+      }).join('\n');
 
-      const moreUnpaid = unpaidDebts.length > 10 ? `\n\n... và ${unpaidDebts.length - 10} bản ghi khác` : '';
+      const moreUnpaid = unpaidDebts.length > 10 ? `\n... và ${unpaidDebts.length - 10} bản ghi khác` : '';
       embed.addFields({
         name: `🔴 Chưa trả (${unpaidDebts.length})`,
         value: unpaidList + moreUnpaid,
@@ -61,9 +61,9 @@ export async function execute(interaction) {
       const paidList = paidDebts.slice(0, 5).map(debt => {
         const dateStr = format(new Date(debt.payrollDate), 'dd/MM/yyyy HH:mm');
         return `**${debt.debtId}** - ${dateStr}\n└ Đã trả: ${debt.totalCoinsNeeded} coins | ${debt.memberCount} người`;
-      }).join('\n\n');
+      }).join('\n');
 
-      const morePaid = paidDebts.length > 5 ? `\n\n... và ${paidDebts.length - 5} bản ghi khác` : '';
+      const morePaid = paidDebts.length > 5 ? `\n... và ${paidDebts.length - 5} bản ghi khác` : '';
       embed.addFields({
         name: `🟢 Đã trả (${paidDebts.length})`,
         value: paidList + morePaid,

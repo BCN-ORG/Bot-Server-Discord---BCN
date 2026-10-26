@@ -32,10 +32,10 @@ export async function execute(interaction) {
       await enableScheduler();
       await interaction.reply({
         content: 
-          `[OK] **SCHEDULER ĐÃ BẬT**\n\n` +
+          `[OK] **SCHEDULER ĐÃ BẬT**\n` +
           `Scheduler sẽ tự động chạy vào **00:00 mỗi ngày** để:\n` +
           `- Kiểm tra vi phạm quá hạn (48 giờ)\n` +
-          `- Kick những user chưa sửa tên hợp lệ\n\n` +
+          `- Kick những user chưa sửa tên hợp lệ\n` +
           `Dùng \`/scheduler off\` để tắt.`,
         ephemeral: true
       });
@@ -43,12 +43,12 @@ export async function execute(interaction) {
       await disableScheduler();
       await interaction.reply({
         content: 
-          `[X] **SCHEDULER ĐÃ TẮT**\n\n` +
+          `[X] **SCHEDULER ĐÃ TẮT**\n` +
           `Scheduler sẽ KHÔNG tự động kick user vi phạm.\n` +
           `Bot vẫn sẽ:\n` +
           `- Xóa tin nhắn của user tên sai\n` +
           `- Mute/deafen trong voice\n` +
-          `- Ghi nhận vi phạm vào database\n\n` +
+          `- Ghi nhận vi phạm vào database\n` +
           `Dùng \`/scheduler on\` để bật lại.`,
         ephemeral: true
       });

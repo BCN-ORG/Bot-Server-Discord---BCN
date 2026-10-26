@@ -53,7 +53,7 @@ export async function execute(interaction) {
         .setColor('#00ff00')
         .setTitle('✅ Thêm Kênh Thành Công')
         .setDescription(
-          `Đã thêm ${channel} vào danh sách kênh thông báo công khai\n\n` +
+          `Đã thêm ${channel} vào danh sách kênh thông báo công khai\n` +
           `Khi có biên bản phạt mới, bot sẽ thông báo công khai tại kênh này.`
         )
         .setTimestamp();
@@ -105,8 +105,8 @@ export async function execute(interaction) {
         .setColor('#0099ff')
         .setTitle('📋 Danh Sách Kênh Thông Báo Công Khai')
         .setDescription(
-          `${channelList}\n\n` +
-          `━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `${channelList}\n` +
+          `━━━━━━━━━━━━━━━━━━━━\n` +
           `💡 Khi có biên bản phạt mới, bot sẽ thông báo công khai tại các kênh trên.`
         )
         .setFooter({ text: `Tổng: ${config.announcementChannels.length} kênh` })

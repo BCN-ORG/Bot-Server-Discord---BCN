@@ -51,14 +51,19 @@ export async function execute(interaction) {
   } catch (error) {
     console.error('[Fine Create] Error:', error);
     
-    const errorEmbed = new EmbedBuilder()
-      .setColor('#ff0000')
-      .setTitle('❌ Lỗi')
-      .setDescription('Đã xảy ra lỗi! Vui lòng thử lại sau.')
-      .setTimestamp();
-
+    // Only reply if we haven't interacted yet
     if (!interaction.replied && !interaction.deferred) {
-      await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+      const errorEmbed = new EmbedBuilder()
+        .setColor('#ff0000')
+        .setTitle('❌ Lỗi')
+        .setDescription('Đã xảy ra lỗi! Vui lòng thử lại sau.')
+        .setTimestamp();
+
+      try {
+        await interaction.reply({ embeds: [errorEmbed], ephemeral: true });
+      } catch (replyError) {
+        console.error('[Fine Create] Could not send error reply:', replyError);
+      }
     }
   }
 }

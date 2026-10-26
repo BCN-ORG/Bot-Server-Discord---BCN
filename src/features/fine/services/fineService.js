@@ -33,17 +33,15 @@ async function sendPaymentNotification(client, fine, payerId, reference) {
           const paymentEmbed = new EmbedBuilder()
             .setColor('#00ff00')
             .setTitle('✅ Thông Báo Thanh Toán Phạt')
-            .setDescription(
-              `Biên bản phạt đã được thanh toán!\n\n` +
-              `━━━━━━━━━━━━━━━━━━━━\n\n` +
-              `📋 **Mã biên bản:** ${fine.fineId}\n` +
-              `👤 **Người bị phạt:** ${violator}\n` +
-              `💳 **Người thanh toán:** ${payer}\n` +
-              `💰 **Số tiền:** ${fine.amount} coins\n` +
-              `📝 **Lý do phạt:** ${fine.reason}\n` +
-              `📅 **Ngày lập:** ${new Date(fine.createdAt).toLocaleDateString('vi-VN')}\n` +
-              `📄 **Mã giao dịch:** ${reference}\n\n` +
-              `━━━━━━━━━━━━━━━━━━━━`
+            .setDescription(`Biên bản phạt đã được thanh toán!`)
+            .addFields(
+              { name: '📋 Mã biên bản', value: fine.fineId, inline: true },
+              { name: '👤 Người bị phạt', value: `${violator}`, inline: true },
+              { name: '💳 Người thanh toán', value: `${payer}`, inline: true },
+              { name: '💰 Số tiền', value: `${fine.amount.toLocaleString('vi-VN')} coins`, inline: true },
+              { name: '📅 Ngày lập', value: new Date(fine.createdAt).toLocaleDateString('vi-VN'), inline: true },
+              { name: '📄 Mã giao dịch', value: reference, inline: true },
+              { name: '📝 Lý do phạt', value: fine.reason, inline: false }
             )
             .setTimestamp();
 
@@ -81,17 +79,14 @@ export async function createAndNotifyFine(client, guildId, violatorId, violator,
     const dmEmbed = new EmbedBuilder()
       .setColor('#ff0000')
       .setTitle('⚠️ Thông Báo Biên Bản Phạt')
-      .setDescription(
-        `Bạn đã bị lập biên bản phạt!\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `📋 **Mã biên bản:** ${fine.fineId}\n` +
-        `👤 **Người lập:** ${creator}\n` +
-        `💰 **Số tiền:** ${fine.amount} coins\n` +
-        `📝 **Lý do:** ${fine.reason}\n` +
-        `📅 **Ngày lập:** ${new Date(fine.createdAt).toLocaleDateString('vi-VN')}\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `💡 Sử dụng lệnh \`/fine-check\` để xem biên bản của bạn\n` +
-        `💳 Sử dụng lệnh \`/fine-confirm-payment ${fine.fineId}\` để thanh toán`
+      .setDescription(`Bạn đã bị lập biên bản phạt!`)
+      .addFields(
+        { name: '📋 Mã biên bản', value: fine.fineId, inline: true },
+        { name: '👤 Người lập', value: `${creator}`, inline: true },
+        { name: '💰 Số tiền', value: `${fine.amount.toLocaleString('vi-VN')} coins`, inline: true },
+        { name: '📝 Lý do', value: fine.reason, inline: false },
+        { name: '📅 Ngày lập', value: new Date(fine.createdAt).toLocaleDateString('vi-VN'), inline: true },
+        { name: '💳 Thanh toán', value: `/fine-confirm-payment ${fine.fineId}`, inline: true }
       )
       .setTimestamp()
       .setFooter({ text: `Server: ${violator.guild.name}` });
@@ -112,16 +107,12 @@ export async function createAndNotifyFine(client, guildId, violatorId, violator,
         const publicEmbed = new EmbedBuilder()
           .setColor('#ff0000')
           .setTitle('🚨 Thông Báo Biên Bản Phạt')
-          .setDescription(
-            `${violator} đã bị lập biên bản phạt!\n\n` +
-            `━━━━━━━━━━━━━━━━━━━━\n\n` +
-            `📋 **Mã biên bản:** ${fine.fineId}\n` +
-            `👤 **Người lập:** ${creator}\n` +
-            `👥 **Người bị phạt:** ${violator}\n` +
-            `💰 **Số tiền:** ${fine.amount} coins\n` +
-            `📝 **Lý do:** ${fine.reason}\n` +
-            `📅 **Ngày lập:** ${new Date(fine.createdAt).toLocaleDateString('vi-VN')}\n\n` +
-            `━━━━━━━━━━━━━━━━━━━━`
+          .setDescription(`${violator} đã bị lập biên bản phạt! ${creator}`)
+          .addFields(
+            { name: '📋 Mã biên bản', value: fine.fineId, inline: true },
+            { name: '💰 Số tiền', value: `${fine.amount.toLocaleString('vi-VN')} coins`, inline: true },
+            { name: '📅 Ngày lập', value: new Date(fine.createdAt).toLocaleDateString('vi-VN'), inline: true },
+            { name: '📝 Lý do', value: fine.reason, inline: false }
           )
           .setTimestamp();
 
@@ -224,9 +215,9 @@ export async function sendDailyReminders(client, guildId) {
           .setColor('#ff9900')
           .setTitle('⏰ Nhắc Nhở Biên Bản Phạt')
           .setDescription(
-            `Bạn có **${userFines.length}** biên bản phạt chưa thanh toán!\n\n` +
-            `💰 **Tổng số tiền:** ${totalAmount} coins\n\n` +
-            `━━━━━━━━━━━━━━━━━━━━\n\n`
+            `Bạn có **${userFines.length}** biên bản phạt chưa thanh toán!\n` +
+            `💰 **Tổng số tiền:** ${totalAmount} coins\n` +
+            `━━━━━━━━━━━━━━━━━━━━\n`
           )
           .setTimestamp();
 
@@ -276,9 +267,9 @@ export async function checkAndNotifyVoiceJoin(guildId, member, textChannel) {
       .setColor('#ff0000')
       .setTitle('⚠️ Nhắc nhở nợ phạt')
       .setDescription(
-        `${member} có **${unpaidFines.length}** biên bản phạt chưa thanh toán!\n\n` +
-        `💰 **Tổng số tiền:** ${totalAmount} coins\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n\n`
+        `${member} có **${unpaidFines.length}** biên bản phạt chưa thanh toán!\n` +
+        `💰 **Tổng số tiền:** ${totalAmount} coins\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n`
       )
       .setTimestamp();
 

@@ -118,9 +118,9 @@ export async function execute(interaction) {
       );
     }
     const suffix = schedules.length > 15
-      ? `\n\nCòn ${schedules.length - 15} phiên khác chưa hiển thị.`
+      ? `\nCòn ${schedules.length - 15} phiên khác chưa hiển thị.`
       : '';
-    await interaction.editReply(`${lines.join('\n\n')}${suffix}`.slice(0, 1950));
+    await interaction.editReply(`${lines.join('\n')}${suffix}`.slice(0, 1950));
   } catch (error) {
     console.error('[ERROR] Temporary role command failed:', error);
     const content = `Không thể xử lý lệnh role tạm thời: ${error.message}`;

@@ -37,6 +37,9 @@ export function createFineModal(userId) {
  * Handle modal submit
  */
 export async function handleFineModalSubmit(interaction, client) {
+  // Defer immediately to prevent timeout
+  await interaction.deferReply({ ephemeral: true });
+
   try {
     // Extract userId from customId
     const userId = interaction.customId.split(':')[1];
@@ -54,9 +57,8 @@ export async function handleFineModalSubmit(interaction, client) {
         .setDescription('Số tiền phải là số nguyên dương!')
         .setFooter({ text: 'Vui lòng thử lại' });
 
-      await interaction.reply({
-        embeds: [errorEmbed],
-        ephemeral: true
+      await interaction.editReply({
+        embeds: [errorEmbed]
       });
       return;
     }
@@ -71,9 +73,8 @@ export async function handleFineModalSubmit(interaction, client) {
         .setDescription('Không tìm thấy thành viên này!')
         .setFooter({ text: 'Vui lòng thử lại' });
 
-      await interaction.reply({
-        embeds: [errorEmbed],
-        ephemeral: true
+      await interaction.editReply({
+        embeds: [errorEmbed]
       });
       return;
     }
@@ -93,21 +94,20 @@ export async function handleFineModalSubmit(interaction, client) {
     const successEmbed = new EmbedBuilder()
       .setColor('#00ff00')
       .setTitle('✅ Lập Biên Bản Thành Công')
+      .addFields(
+        { name: '📋 Mã biên bản', value: fine.fineId, inline: true },
+        { name: '👤 Người bị phạt', value: `${violator}`, inline: true },
+        { name: '💰 Số tiền', value: `${fine.amount.toLocaleString('vi-VN')} coins`, inline: true },
+        { name: '📝 Lý do', value: fine.reason, inline: false }
+      )
       .setDescription(
-        `Đã lập biên bản phạt cho ${violator}!\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `📋 **Mã biên bản:** ${fine.fineId}\n` +
-        `💰 **Số tiền:** ${fine.amount} coins\n` +
-        `📝 **Lý do:** ${fine.reason}\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n\n` +
         `✉️ Đã gửi thông báo đến người vi phạm\n` +
         `📢 Đã thông báo công khai trên các kênh`
       )
       .setTimestamp();
 
-    await interaction.reply({
-      embeds: [successEmbed],
-      ephemeral: true
+    await interaction.editReply({
+      embeds: [successEmbed]
     });
 
   } catch (error) {
@@ -119,16 +119,19 @@ export async function handleFineModalSubmit(interaction, client) {
       .setDescription('Đã xảy ra lỗi khi lập biên bản. Vui lòng thử lại sau!')
       .setFooter({ text: 'Lỗi hệ thống' });
 
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({
-        embeds: [errorEmbed],
-        ephemeral: true
-      });
-    } else {
-      await interaction.reply({
-        embeds: [errorEmbed],
-        ephemeral: true
-      });
+    try {
+      if (interaction.deferred) {
+        await interaction.editReply({
+          embeds: [errorEmbed]
+        });
+      } else if (!interaction.replied) {
+        await interaction.reply({
+          embeds: [errorEmbed],
+          ephemeral: true
+        });
+      }
+    } catch (replyError) {
+      console.error('[Fine Modal] Could not send error reply:', replyError);
     }
   }
 }

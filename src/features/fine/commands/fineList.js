@@ -63,8 +63,8 @@ export async function execute(interaction) {
       .setTitle('📋 Danh Sách Biên Bản Phạt')
       .setDescription(
         `Hiển thị trang ${result.pagination.page}/${result.pagination.totalPages}\n` +
-        `Tổng: ${result.pagination.total} biên bản\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n\n`
+        `Tổng: ${result.pagination.total} biên bản\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n`
       )
       .setTimestamp();
 

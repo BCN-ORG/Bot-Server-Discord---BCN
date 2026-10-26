@@ -76,7 +76,7 @@ export async function execute(interaction, client) {
 
     // Them thong tin chi tiet neu can
     if (result.total === 0) {
-      embed.setDescription('Khong co thanh vien nao duoc tra luong.\n\nVui long kiem tra:\n• Da them role vao danh sach tra luong?\n• Co thanh vien nao co role do khong?');
+      embed.setDescription('Khong co thanh vien nao duoc tra luong.\nVui long kiem tra:\n• Da them role vao danh sach tra luong?\n• Co thanh vien nao co role do khong?');
     } else if (result.failed > 0 || result.unprocessed > 0) {
       embed.setDescription(`Da dung dot tra luong do co loi. ${result.unprocessed} thanh vien phia sau chua duoc xu ly. Vui long kiem tra log truoc khi chay lai.`);
     } else if (result.success > 0) {

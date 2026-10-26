@@ -27,15 +27,15 @@ export async function handleGuildMemberAdd(member) {
           .setColor('#ff9900')
           .setTitle('⚠️ Tên hiển thị không hợp lệ')
           .setDescription(
-            `Chào mừng bạn đến với server!\n\n` +
-            `Tên hiển thị của bạn (\`${nickname}\`) không hợp lệ.\n\n` +
-            `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `Chào mừng bạn đến với server!\n` +
+            `Tên hiển thị của bạn (\`${nickname}\`) không hợp lệ.\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
             `📋 **Quy định đặt tên:**\n` +
             `• Họ và tên đầy đủ (2-5 từ)\n` +
             `• Viết hoa chữ cái đầu mỗi từ\n` +
             `• Chỉ dùng chữ cái (có dấu)\n` +
-            `• Ví dụ: Nguyễn Văn A\n\n` +
-            `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `• Ví dụ: Nguyễn Văn A\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━\n` +
             `Vui lòng dùng lệnh \`/rename\` hoặc bấm nút bên dưới để đổi tên!`
           )
           .setTimestamp();
@@ -74,14 +74,14 @@ async function sendWelcomeMessage(member) {
       .setColor('#5865F2')
       .setTitle('Chao mung thanh vien moi!')
       .setDescription(
-        `Chao mung ${member} den voi server!\n\n` +
-        `**Vui long dat ten theo dinh dang:** Nguyen Minh Vu\n\n` +
+        `Chao mung ${member} den voi server!\n` +
+        `**Vui long dat ten theo dinh dang:** Nguyen Minh Vu\n` +
         `**Yeu cau:**\n` +
         `- Chi chua chu cai (co hoac khong dau)\n` +
         `- Co tu 2-5 tu\n` +
-        `- Khong co so, emoji hoac ky tu dac biet\n\n` +
+        `- Khong co so, emoji hoac ky tu dac biet\n` +
         `**Han sua: 48 gio**\n` +
-        `Neu khong sua dung ten, ban se bi kick khoi server.\n\n` +
+        `Neu khong sua dung ten, ban se bi kick khoi server.\n` +
         `Bam nut ben duoi de nhap ho ten:`
       )
       .setThumbnail(member.user.displayAvatarURL())

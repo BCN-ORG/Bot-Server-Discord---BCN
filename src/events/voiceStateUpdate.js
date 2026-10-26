@@ -76,17 +76,17 @@ async function sendNameValidationReminder(member, channel) {
       .setColor('#ff0000')
       .setTitle(`${EMOJIS.WARNING} Bạn đã bị chặn nói và nghe`)
       .setDescription(
-        `Xin chào ${member},\n\n` +
-        `Bạn đã bị chặn nói và nghe trong voice channel vì tên hiển thị không hợp lệ!\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `Xin chào ${member},\n` +
+        `Bạn đã bị chặn nói và nghe trong voice channel vì tên hiển thị không hợp lệ!\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
         `${EMOJIS.INFO} **Quy định đặt tên:**\n` +
         `• Họ và tên đầy đủ (2-5 từ)\n` +
         `• Viết hoa chữ cái đầu mỗi từ\n` +
         `• Chỉ dùng chữ cái (có dấu)\n` +
-        `• Ví dụ: Nguyễn Văn A\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `• Ví dụ: Nguyễn Văn A\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
         `${EMOJIS.WARNING} **Bạn có 48 giờ để đổi tên.**\n` +
-        `Sau khi đổi tên hợp lệ, bạn sẽ được bỏ chặn tự động.\n\n` +
+        `Sau khi đổi tên hợp lệ, bạn sẽ được bỏ chặn tự động.\n` +
         `${EMOJIS.INFO} Sử dụng lệnh \`/rename\` hoặc bấm nút bên dưới để đổi tên!`
       )
       .setTimestamp()

@@ -69,12 +69,12 @@ async function sendMessageWarning(member, channel) {
       .setColor('#ff9900')
       .setTitle(`${EMOJIS.WARNING} Tên hiển thị không hợp lệ`)
       .setDescription(
-        `Tin nhắn của bạn trong **#${channel.name}** đã bị xóa vì tên hiển thị không hợp lệ!\n\n` +
+        `Tin nhắn của bạn trong **#${channel.name}** đã bị xóa vì tên hiển thị không hợp lệ!\n` +
         `${EMOJIS.INFO} **Vui lòng đổi tên theo quy định:**\n` +
         `• Họ và tên đầy đủ (2-5 từ)\n` +
         `• Viết hoa chữ cái đầu mỗi từ\n` +
         `• Chỉ dùng chữ cái (có dấu)\n` +
-        `• Ví dụ: Nguyễn Văn A\n\n` +
+        `• Ví dụ: Nguyễn Văn A\n` +
         `💡 Sau khi đổi tên hợp lệ, bạn có thể gửi tin nhắn bình thường.`
       )
       .setTimestamp()

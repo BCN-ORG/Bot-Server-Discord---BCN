@@ -80,6 +80,9 @@ client.once('ready', async () => {
     // Initialize fine indexes
     const { initFineIndexes } = await import('./database/fines.js');
     await initFineIndexes();
+    // Initialize contribution indexes
+    const { initContributionIndexes } = await import('./database/contributions.js');
+    await initContributionIndexes();
   } catch (error) {
     console.error('[ERROR] Không thể kết nối MongoDB. Bot sẽ thoát.');
     process.exit(1);

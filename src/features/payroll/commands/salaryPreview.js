@@ -78,7 +78,7 @@ export async function execute(interaction, client) {
     if (preview.deficit > 0) {
       embed.addFields({ 
         name: '⚠️ Số dư thiếu', 
-        value: `**${preview.deficit}** coins\n\n❌ **KHÔNG ĐỦ** để trả lương!\nCần nạp thêm trước khi chạy payroll.`, 
+        value: `**${preview.deficit}** coins\n❌ **KHÔNG ĐỦ** để trả lương!\nCần nạp thêm trước khi chạy payroll.`, 
         inline: false 
       });
     } else {

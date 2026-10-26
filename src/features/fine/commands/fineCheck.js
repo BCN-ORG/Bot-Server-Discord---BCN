@@ -30,9 +30,9 @@ export async function execute(interaction) {
       .setColor('#ff0000')
       .setTitle('📋 Biên Bản Phạt Của Bạn')
       .setDescription(
-        `Bạn có **${unpaidFines.length}** biên bản phạt chưa thanh toán\n\n` +
-        `💰 **Tổng số tiền:** ${totalAmount} coins\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n\n`
+        `Bạn có **${unpaidFines.length}** biên bản phạt chưa thanh toán\n` +
+        `💰 **Tổng số tiền:** ${totalAmount} coins\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n`
       )
       .setTimestamp();
 

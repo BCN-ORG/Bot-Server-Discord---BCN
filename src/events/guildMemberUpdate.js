@@ -114,17 +114,17 @@ async function sendNicknameWarningDM(member) {
       .setColor('#ff9900')
       .setTitle(`${EMOJIS.WARNING} Tên hiển thị không hợp lệ`)
       .setDescription(
-        `Xin chào ${member},\n\n` +
-        `Tên hiển thị của bạn **"${member.nickname || member.user.username}"** không đúng định dạng.\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `Xin chào ${member},\n` +
+        `Tên hiển thị của bạn **"${member.nickname || member.user.username}"** không đúng định dạng.\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
         `${EMOJIS.INFO} **Quy định đặt tên:**\n` +
         `• Họ và tên đầy đủ (2-5 từ)\n` +
         `• Viết hoa chữ cái đầu mỗi từ\n` +
         `• Chỉ dùng chữ cái (có dấu)\n` +
-        `• Ví dụ: Nguyễn Văn A\n\n` +
-        `━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+        `• Ví dụ: Nguyễn Văn A\n` +
+        `━━━━━━━━━━━━━━━━━━━━━━\n` +
         `${EMOJIS.WARNING} **Bạn có 48 giờ để đổi tên.**\n` +
-        `Sau thời gian này bạn sẽ bị kick khỏi server.\n\n` +
+        `Sau thời gian này bạn sẽ bị kick khỏi server.\n` +
         `${EMOJIS.INFO} Sử dụng lệnh \`/rename\` để đổi tên nhanh chóng!`
       )
       .setTimestamp()

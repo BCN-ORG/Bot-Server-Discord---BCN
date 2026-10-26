@@ -217,3 +217,122 @@ export async function getPayouts(period, roleId) {
     throw error;
   }
 }
+
+/**
+ * Nap coin cho bot (topup)
+ * @param {string} reference - Ma giao dich duy nhat
+ * @param {string} userId - Discord user ID nguoi nap
+ * @param {number} amount - So coin
+ * @param {string} reason - Ly do
+ */
+export async function topupCoin(reference, userId, amount, reason) {
+  const config = getConfig();
+
+  if (typeof userId !== 'string' || !/^\d+$/.test(userId)) {
+    throw new TypeError('[Payroll API] userId must be a Discord ID string containing digits only');
+  }
+
+  if (typeof reference !== 'string' || reference.length === 0 || reference.length > 100) {
+    throw new TypeError('[Payroll API] reference must be a string (1-100 characters)');
+  }
+
+  return retryWithBackoff(async () => {
+    try {
+      const requestBody = {
+        reference,
+        userId,
+        amount,
+        reason
+      };
+
+      console.log('[Payroll API] Sending topup:', JSON.stringify(requestBody));
+
+      const response = await fetch(`${config.baseUrl}/topup`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(requestBody)
+      });
+
+      const data = await response.json();
+      console.log(
+        `[Payroll API] Topup response (HTTP ${response.status}):`,
+        JSON.stringify(data)
+      );
+
+      // 409 va 503 can retry
+      if (response.status === 409 || response.status === 503) {
+        return {
+          shouldRetry: true,
+          status: response.status,
+          data
+        };
+      }
+
+      // 403/404 khong phai loi - tra ve response de caller xu ly
+      if (response.status === 403 || response.status === 404) {
+        return {
+          shouldRetry: false,
+          status: response.status,
+          data,
+          httpStatus: response.status
+        };
+      }
+
+      // 200 - thanh cong (duplicate:true cung la 200)
+      if (response.status === 200) {
+        return {
+          shouldRetry: false,
+          status: response.status,
+          data,
+          httpStatus: 200
+        };
+      }
+
+      // Cac loi khac - tra ve de caller xu ly
+      return {
+        shouldRetry: false,
+        status: response.status,
+        data,
+        httpStatus: response.status
+      };
+
+    } catch (error) {
+      console.error('[Payroll API] Topup error:', error);
+      throw error;
+    }
+  });
+}
+
+
+/**
+ * Lay lich su tru/nap coin (adjustments)
+ * @param {string} type - 'DEDUCT' hoac 'TOPUP' hoac null (all)
+ * @param {string} userId - Discord user ID hoac null (all)
+ */
+export async function getAdjustments(type, userId) {
+  const config = getConfig();
+
+  try {
+    const params = new URLSearchParams();
+    if (type) params.append('type', type);
+    if (userId) params.append('userId', userId);
+
+    const url = `${config.baseUrl}/adjustments?${params.toString()}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: getHeaders()
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to get adjustments');
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('[Payroll API] Get adjustments error:', error);
+    throw error;
+  }
+}

@@ -31,61 +31,95 @@ export async function initFineIndexes() {
 }
 
 /**
- * Generate unique fineId in format FINE-YYYYMMDD-XXX
+ * Generate unique fineId in format FINE-YYYYMMDD-XXX with retry logic
  */
 export async function generateFineId() {
   const db = getDatabase();
   const collection = db.collection(COLLECTION_NAME);
   
-  const now = new Date();
-  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
+  const maxRetries = 5;
   
-  // Find the latest fine for today
-  const latestFine = await collection
-    .find({ fineId: { $regex: `^FINE-${dateStr}-` } })
-    .sort({ fineId: -1 })
-    .limit(1)
-    .toArray();
-  
-  let sequence = 1;
-  if (latestFine.length > 0) {
-    const lastId = latestFine[0].fineId;
-    const lastSequence = parseInt(lastId.split('-')[2], 10);
-    sequence = lastSequence + 1;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, ''); // YYYYMMDD
+    
+    // Find the latest fine for today
+    const latestFine = await collection
+      .find({ fineId: { $regex: `^FINE-${dateStr}-` } })
+      .sort({ fineId: -1 })
+      .limit(1)
+      .toArray();
+    
+    let sequence = 1;
+    if (latestFine.length > 0) {
+      const lastId = latestFine[0].fineId;
+      const lastSequence = parseInt(lastId.split('-')[2], 10);
+      sequence = lastSequence + 1;
+    }
+    
+    const sequenceStr = sequence.toString().padStart(3, '0');
+    const fineId = `FINE-${dateStr}-${sequenceStr}`;
+    
+    // Check if this ID already exists (race condition protection)
+    const exists = await collection.findOne({ fineId });
+    
+    if (!exists) {
+      return fineId;
+    }
+    
+    // If exists, wait a bit and retry
+    await new Promise(resolve => setTimeout(resolve, 50 * (attempt + 1)));
   }
   
-  const sequenceStr = sequence.toString().padStart(3, '0');
-  return `FINE-${dateStr}-${sequenceStr}`;
+  // Fallback: add milliseconds to ensure uniqueness
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const timestamp = Date.now().toString().slice(-6); // last 6 digits of timestamp
+  return `FINE-${dateStr}-${timestamp}`;
 }
 
 /**
- * Create a new fine
+ * Create a new fine with retry on duplicate key error
  */
 export async function createFine(guildId, userId, username, reason, amount, createdBy) {
   const db = getDatabase();
   const collection = db.collection(COLLECTION_NAME);
   
-  const fineId = await generateFineId();
-  const now = new Date();
+  const maxRetries = 3;
   
-  const fine = {
-    fineId,
-    guildId,
-    userId,
-    username,
-    reason,
-    amount,
-    isPaid: false,
-    paidAt: null,
-    paidBy: null,
-    payrollReference: null,
-    createdBy,
-    createdAt: now,
-    updatedAt: now
-  };
-  
-  await collection.insertOne(fine);
-  return fine;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const fineId = await generateFineId();
+      const now = new Date();
+      
+      const fine = {
+        fineId,
+        guildId,
+        userId,
+        username,
+        reason,
+        amount,
+        isPaid: false,
+        paidAt: null,
+        paidBy: null,
+        payrollReference: null,
+        createdBy,
+        createdAt: now,
+        updatedAt: now
+      };
+      
+      await collection.insertOne(fine);
+      return fine;
+    } catch (error) {
+      // If duplicate key error and not last attempt, retry
+      if (error.code === 11000 && attempt < maxRetries - 1) {
+        console.log(`[Fines] Duplicate key, retrying... (attempt ${attempt + 1})`);
+        await new Promise(resolve => setTimeout(resolve, 100 * (attempt + 1)));
+        continue;
+      }
+      throw error;
+    }
+  }
 }
 
 /**

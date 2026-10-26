@@ -7,6 +7,7 @@ import * as temporaryRolesFeature from './features/temporaryRoles/index.js';
 import * as kickManagerFeature from './features/kickManager/index.js';
 import * as coinRandomFeature from './features/coinRandom/index.js';
 import * as fineFeature from './features/fine/index.js';
+import * as coinsFeature from './features/coins/index.js';
 import {
   execute as kickExecute,
   executeRollback as kickRollbackExecute,
@@ -50,7 +51,9 @@ export async function registerCommands(token, clientId, guildId) {
     fineFeature.fineConfirmPayment.data.toJSON(),
     fineFeature.fineReminderTimes.data.toJSON(),
     fineFeature.fineAnnouncementChannels.data.toJSON(),
-    fineFeature.fineDelete.data.toJSON()
+    fineFeature.fineDelete.data.toJSON(),
+    coinsFeature.balance.data.toJSON(),
+    coinsFeature.contribute.data.toJSON()
   ];
 
   const rest = new REST({ version: '10' }).setToken(token);
@@ -125,6 +128,14 @@ export function setupInteractionHandlers(client) {
 
       if (interaction.isChatInputCommand() && interaction.commandName === 'fine-delete') {
         await fineFeature.fineDelete.execute(interaction, client);
+      }
+
+      if (interaction.isChatInputCommand() && interaction.commandName === 'coins-balance') {
+        await coinsFeature.balance.execute(interaction);
+      }
+
+      if (interaction.isChatInputCommand() && interaction.commandName === 'coins-contribute') {
+        await coinsFeature.contribute.execute(interaction);
       }
 
       if (interaction.isChatInputCommand() && interaction.commandName === 'kick-manager') {
