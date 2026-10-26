@@ -49,7 +49,7 @@ export async function initPayrollScheduler(client) {
       
       try {
         const result = await processWeeklyPayroll(client);
-        console.log(`[SCHEDULER] Payroll completed: ${result.success} success, ${result.failed} failed, ${result.skipped} skipped, ${result.alreadyPaid} already paid, ${result.unprocessed} unprocessed`);
+        console.log(`[SCHEDULER] Payroll completed: ${result.success} success, ${result.failed} failed, ${result.skipped} skipped, ${result.unprocessed} unprocessed`);
       } catch (error) {
         console.error('[ERROR] Scheduled payroll failed:', error);
       }
@@ -91,7 +91,7 @@ export async function updateSchedule(dayOfWeek, hour, minute, client) {
       
       try {
         const result = await processWeeklyPayroll(client);
-        console.log(`[SCHEDULER] Payroll completed: ${result.success} success, ${result.failed} failed, ${result.skipped} skipped, ${result.alreadyPaid} already paid, ${result.unprocessed} unprocessed`);
+        console.log(`[SCHEDULER] Payroll completed: ${result.success} success, ${result.failed} failed, ${result.skipped} skipped, ${result.unprocessed} unprocessed`);
       } catch (error) {
         console.error('[ERROR] Scheduled payroll failed:', error);
       }

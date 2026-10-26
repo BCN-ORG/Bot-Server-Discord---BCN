@@ -56,7 +56,6 @@ export async function execute(interaction, client) {
         { name: 'Thanh cong', value: `${result.success}`, inline: true },
         { name: 'That bai', value: `${result.failed}`, inline: true },
         { name: 'Bo qua', value: `${result.skipped}`, inline: true },
-        { name: 'Da phat truoc do', value: `${result.alreadyPaid}`, inline: true },
         { name: 'Chua xu ly', value: `${result.unprocessed}`, inline: true },
         { name: 'Thoi gian xu ly', value: `${durationSeconds}s`, inline: true }
       )
@@ -81,8 +80,6 @@ export async function execute(interaction, client) {
       embed.setDescription(`Da dung dot tra luong do co loi. ${result.unprocessed} thanh vien phia sau chua duoc xu ly. Vui long kiem tra log truoc khi chay lai.`);
     } else if (result.success > 0) {
       embed.setDescription(`Da tra luong thanh cong cho ${result.success} thanh vien!`);
-    } else if (result.alreadyPaid === result.total) {
-      embed.setDescription('Tat ca thanh vien trong danh sach da duoc phat luong truoc do trong tuan nay.');
     } else if (result.skipped === result.total) {
       embed.setDescription('Tat ca thanh vien da duoc tra luong trong tuan nay hoac khong du dieu kien.');
     }

@@ -85,7 +85,6 @@ export async function processWeeklyPayroll(client) {
         success: 0,
         failed: 0,
         skipped: 0,
-        alreadyPaid: 0,
         unprocessed: 0,
         duration: Date.now() - startTime
       };
@@ -140,21 +139,12 @@ export async function processWeeklyPayroll(client) {
     );
 
     const period = getCurrentPayrollPeriod();
-    const periodHistory = await getHistoryByPeriod(guildId, period);
-    const alreadyPaidUsers = new Set(
-      periodHistory
-        .filter(record => record.status === 'SUCCESS')
-        .map(record => record.userId)
-    );
-
-    console.log(`[Payroll] ${alreadyPaidUsers.size} member(s) already paid for ${period}`);
 
     // 5. Pre-calculate total coins needed across all eligible members
     let totalNeeded = 0;
     const memberCalculations = [];
 
     for (const [memberId, member] of uniqueMembers) {
-      if (alreadyPaidUsers.has(memberId)) continue;
       const userEligibleRoles = getUserEligibleRoles(member, eligibleRoleIds);
       if (userEligibleRoles.length === 0) continue;
       const hasCoefficientEligibility = member.roles.cache.some(role =>
@@ -166,8 +156,8 @@ export async function processWeeklyPayroll(client) {
         fixedSalaryMap,
         hasCoefficientEligibility
       );
-      if (salaryInfo.amount === 0) continue;
-      totalNeeded += salaryInfo.amount;
+      if (salaryInfo.totalAmount === 0) continue;
+      totalNeeded += salaryInfo.totalAmount;
       memberCalculations.push({ memberId, member, userEligibleRoles, salaryInfo });
     }
 
@@ -183,7 +173,7 @@ export async function processWeeklyPayroll(client) {
       const unpaidMembers = memberCalculations.map(calc => ({
         userId: calc.memberId,
         username: calc.member.user.username,
-        amount: calc.salaryInfo.amount,
+        amount: calc.salaryInfo.totalAmount,
         eligibleRoles: calc.salaryInfo.roleDetails,
         paidWithRole: calc.userEligibleRoles[0]
       }));
@@ -208,7 +198,6 @@ export async function processWeeklyPayroll(client) {
         success: 0,
         failed: 0,
         skipped: 0,
-        alreadyPaid: alreadyPaidUsers.size,
         unprocessed: 0,
         debtCreated: true,
         debtId,
@@ -223,7 +212,6 @@ export async function processWeeklyPayroll(client) {
     let successCount = 0;
     let failedCount = 0;
     let skippedCount = 0;
-    let alreadyPaidCount = 0;
     let hasRequestedTransfer = false;
 
     for (const member of uniqueMembers.values()) {
@@ -231,12 +219,6 @@ export async function processWeeklyPayroll(client) {
       let outcomeCounted = false;
 
       try {
-        if (alreadyPaidUsers.has(userId)) {
-          console.log(`[Payroll] ${member.user.tag} (${userId}): Already paid for ${period}`);
-          alreadyPaidCount++;
-          continue;
-        }
-
         // a. Lay cac role ma user co (de check eligible)
         const userEligibleRoles = getUserEligibleRoles(member, eligibleRoleIds);
         
@@ -264,122 +246,151 @@ export async function processWeeklyPayroll(client) {
             : `${role.roleName}(${role.coefficient})`)
           .join(' + ');
         console.log(
-          `[Payroll] ${member.user.tag} (${userId}): ${salaryInfo.roleDetails.length} roles counted`
+          `[Payroll] ${member.user.tag} (${userId}): ${salaryInfo.payments.length} payment(s) planned`
         );
-        console.log(`[Payroll]   Formula: ${roleBreakdown} = ${salaryInfo.rawAmount} coins${salaryInfo.isCapped ? ' (capped to 100)' : ''}`);
-        console.log(`[Payroll]   Final amount: ${salaryInfo.amount} coins`);
+        console.log(`[Payroll]   Formula: ${roleBreakdown} = ${salaryInfo.rawTotalAmount} coins${salaryInfo.isCapped ? ' (capped)' : ''}`);
+        console.log(`[Payroll]   Total amount: ${salaryInfo.totalAmount} coins`);
         
-        if (salaryInfo.amount === 0) {
-          console.log(`[Payroll] Skipping ${member.user.tag}: amount is 0`);
+        // Log chi tiet tung payment
+        salaryInfo.payments.forEach((payment, idx) => {
+          console.log(
+            `[Payroll]   Payment ${idx + 1}: ${payment.type === 'coefficient' ? 'Coefficient' : 'Fixed'} ${payment.roleName} via ${payment.roleId} = ${payment.amount} coins`
+          );
+        });
+        
+        if (salaryInfo.totalAmount === 0) {
+          console.log(`[Payroll] Skipping ${member.user.tag}: total amount is 0`);
           skippedCount++;
           continue;
         }
 
-        // c. Chon role dau tien de tra
-        const paidWithRole = userEligibleRoles.find(role =>
-          activeCoefficientRoleIds.has(role.roleId)
-        ) || userEligibleRoles[0];
+        // c. Xu ly tung payment rieng biet
+        let memberHadSuccessfulPayment = false;
+        let memberHadFailure = false;
+        
+        for (let paymentIndex = 0; paymentIndex < salaryInfo.payments.length; paymentIndex++) {
+          const payment = salaryInfo.payments[paymentIndex];
+          
+          // Set description cho payment
+          payment.description = payment.type === 'coefficient'
+            ? `Lương hệ số tuần ${period}`
+            : `Lương cố định ${payment.roleName} tuần ${period}`;
 
-        if (hasRequestedTransfer) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-
-        // d. Goi API tra luong
-        const transferResult = await transferPayment(
-          userId,
-          paidWithRole.roleId,
-          salaryInfo.amount,
-          `Lương + ${new Date().toLocaleDateString('vi-VN')}`
-        );
-        hasRequestedTransfer = true;
-
-        // e. Luu lich su
-        const now = new Date();
-        const historyRecord = {
-          guildId,
-          userId,
-          paidAt: now,
-          period: transferResult.data?.period || period,
-          eligibleRoles: salaryInfo.roleDetails,
-          paidWithRole: {
-            roleId: paidWithRole.roleId,
-            roleName: paidWithRole.roleName
-          },
-          amount: salaryInfo.amount,
-          rawAmount: salaryInfo.rawAmount,
-          coefficientAmount: salaryInfo.coefficientTotal,
-          fixedSalaryAmount: salaryInfo.fixedSalaryIncluded,
-          isCapped: salaryInfo.isCapped,
-          allRolesAtTime: Array.from(member.roles.cache.values()).map(r => ({
-            roleId: r.id,
-            roleName: r.name
-          })),
-          status: 'UNKNOWN',
-          apiResponse: transferResult.data,
-          httpStatus: transferResult.httpStatus
-        };
-
-        let stopAfterThisMember = false;
-
-        // Xac dinh status
-        if (transferResult.httpStatus === 200) {
-          if (transferResult.data?.status === 'SUCCESS') {
-            // Tat ca truong hop SUCCESS deu duoc ghi nhan voi status='SUCCESS'
-            historyRecord.status = 'SUCCESS';
-            historyRecord.duplicate = transferResult.data?.duplicate === true;
-            
-            if (historyRecord.duplicate) {
-              // duplicate:true nghia la da tra roi, nhung van la success
-              console.log(`[Payroll] ${member.user.tag}: Already paid this period (duplicate=true, counted as success/skip)`);
-              alreadyPaidCount++;
-              alreadyPaidUsers.add(userId);
-            } else {
-              console.log(`[Payroll] ${member.user.tag} (${userId}): Paid ${salaryInfo.amount} coins`);
-              successCount++;
-              alreadyPaidUsers.add(userId);
-            }
-          } else if (transferResult.data?.status === 'FAILED') {
-            historyRecord.status = 'FAILED';
-            historyRecord.error = transferResult.data?.error || 'Unknown error';
-            console.error(`[ERROR] ${member.user.tag}: Payment failed - ${historyRecord.error}`);
-            failedCount++;
-            stopAfterThisMember = true;
-          } else {
-            historyRecord.status = 'ERROR';
-            historyRecord.error = 'Unexpected successful HTTP response from Payroll API';
-            console.error(`[ERROR] ${member.user.tag}: ${historyRecord.error}`);
-            failedCount++;
-            stopAfterThisMember = true;
+          if (hasRequestedTransfer) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
-        } else if (transferResult.httpStatus === 403) {
-          historyRecord.status = 'NO_ROLE';
-          historyRecord.error = 'User does not have the required role';
-          console.warn(`[WARN] ${member.user.tag} (${userId}): No role ${paidWithRole.roleName}; skipping member`);
-          skippedCount++;
-        } else if (transferResult.httpStatus === 404) {
-          historyRecord.status = 'NOT_IN_SERVER';
-          historyRecord.error = 'User not found in server';
-          console.warn(`[WARN] ${member.user.tag} (${userId}): Not in server; skipping member`);
-          skippedCount++;
-        } else {
-          historyRecord.status = transferResult.httpStatus ? 'ERROR' : 'FAILED';
-          historyRecord.error = transferResult.data?.message
-            || transferResult.data?.error
-            || `HTTP ${transferResult.httpStatus ?? transferResult.status}`;
-          console.error(`[ERROR] ${member.user.tag}: ${historyRecord.error}`);
-          failedCount++;
-          stopAfterThisMember = true;
+
+          // d. Goi API tra luong cho payment nay
+          const transferResult = await transferPayment(
+            userId,
+            payment.roleId,
+            payment.amount,
+            payment.description
+          );
+          hasRequestedTransfer = true;
+
+          // e. Luu lich su cho payment nay
+          const now = new Date();
+          const historyRecord = {
+            guildId,
+            userId,
+            paidAt: now,
+            period: transferResult.data?.period || period,
+            eligibleRoles: salaryInfo.roleDetails,
+            paidWithRole: {
+              roleId: payment.roleId,
+              roleName: payment.roleName
+            },
+            amount: payment.amount,
+            rawAmount: salaryInfo.rawTotalAmount,
+            coefficientAmount: salaryInfo.coefficientTotal,
+            fixedSalaryAmount: salaryInfo.fixedSalaryTotal,
+            isCapped: salaryInfo.isCapped,
+            paymentType: payment.type,
+            paymentIndex: paymentIndex + 1,
+            totalPaymentsForMember: salaryInfo.payments.length,
+            allRolesAtTime: Array.from(member.roles.cache.values()).map(r => ({
+              roleId: r.id,
+              roleName: r.name
+            })),
+            status: 'UNKNOWN',
+            apiResponse: transferResult.data,
+            httpStatus: transferResult.httpStatus
+          };
+
+          let stopAfterThisPayment = false;
+
+          // Xac dinh status
+          if (transferResult.httpStatus === 200) {
+            if (transferResult.data?.status === 'SUCCESS') {
+              historyRecord.status = 'SUCCESS';
+              historyRecord.duplicate = transferResult.data?.duplicate === true;
+              
+              if (historyRecord.duplicate) {
+                console.log(`[Payroll]   ✓ Payment ${paymentIndex + 1} SUCCESS: ${payment.amount} coins (duplicate: true)`);
+              } else {
+                console.log(`[Payroll]   ✓ Payment ${paymentIndex + 1} SUCCESS: ${payment.amount} coins (duplicate: false)`);
+                memberHadSuccessfulPayment = true;
+              }
+            } else if (transferResult.data?.status === 'FAILED') {
+              historyRecord.status = 'FAILED';
+              historyRecord.error = transferResult.data?.error || 'Unknown error';
+              console.error(`[ERROR]   ✗ Payment ${paymentIndex + 1} FAILED: ${historyRecord.error}`);
+              memberHadFailure = true;
+              stopAfterThisPayment = true;
+            } else {
+              historyRecord.status = 'ERROR';
+              historyRecord.error = 'Unexpected successful HTTP response from Payroll API';
+              console.error(`[ERROR]   ✗ Payment ${paymentIndex + 1} ERROR: ${historyRecord.error}`);
+              memberHadFailure = true;
+              stopAfterThisPayment = true;
+            }
+          } else if (transferResult.httpStatus === 403) {
+            historyRecord.status = 'NO_ROLE';
+            historyRecord.error = 'User does not have the required role';
+            console.warn(`[WARN]   ✗ Payment ${paymentIndex + 1} NO_ROLE: User does not have role ${payment.roleName}`);
+            stopAfterThisPayment = true;
+          } else if (transferResult.httpStatus === 404) {
+            historyRecord.status = 'NOT_IN_SERVER';
+            historyRecord.error = 'User not found in server';
+            console.warn(`[WARN]   ✗ Payment ${paymentIndex + 1} NOT_IN_SERVER`);
+            stopAfterThisPayment = true;
+          } else {
+            historyRecord.status = transferResult.httpStatus ? 'ERROR' : 'FAILED';
+            historyRecord.error = transferResult.data?.message
+              || transferResult.data?.error
+              || `HTTP ${transferResult.httpStatus ?? transferResult.status}`;
+            console.error(`[ERROR]   ✗ Payment ${paymentIndex + 1} ERROR: ${historyRecord.error}`);
+            memberHadFailure = true;
+            stopAfterThisPayment = true;
+          }
+
+          // Luu vao database
+          await savePayrollHistory(historyRecord);
+
+          if (stopAfterThisPayment) {
+            console.error(`[Payroll] Stopping payments for ${member.user.tag} after payment ${paymentIndex + 1} failure`);
+            break; // Break payment loop, continue to next member
+          }
         }
 
+        // Count outcome for this member
+        if (memberHadSuccessfulPayment) {
+          successCount++;
+        } else if (memberHadFailure) {
+          failedCount++;
+        } else {
+          // All payments were duplicates
+          skippedCount++;
+        }
         outcomeCounted = true;
 
-        // Luu vao database
-        await savePayrollHistory(historyRecord);
-
-        if (stopAfterThisMember) {
+        // If had failure, stop entire payroll
+        if (memberHadFailure) {
           console.error('[Payroll] Stopping payroll after the first unsuccessful payment');
           break;
         }
+
       } catch (error) {
         console.error(`[ERROR] Failed to process member ${userId}:`, error);
         if (!outcomeCounted) {
@@ -392,6 +403,7 @@ export async function processWeeklyPayroll(client) {
             guildId,
             userId,
             paidAt: new Date(),
+            period,
             status: 'ERROR',
             error: error.message,
             amount: 0
@@ -411,16 +423,14 @@ export async function processWeeklyPayroll(client) {
     const unprocessedCount = uniqueMembers.size
       - successCount
       - failedCount
-      - skippedCount
-      - alreadyPaidCount;
-    console.log(`[Payroll] Total: ${uniqueMembers.size}, Success: ${successCount}, Failed: ${failedCount}, Skipped: ${skippedCount}, Already paid: ${alreadyPaidCount}, Unprocessed: ${unprocessedCount}`);
+      - skippedCount;
+    console.log(`[Payroll] Total: ${uniqueMembers.size}, Success: ${successCount}, Failed: ${failedCount}, Skipped: ${skippedCount}, Unprocessed: ${unprocessedCount}`);
 
     return {
       total: uniqueMembers.size,
       success: successCount,
       failed: failedCount,
       skipped: skippedCount,
-      alreadyPaid: alreadyPaidCount,
       unprocessed: unprocessedCount,
       duration
     };

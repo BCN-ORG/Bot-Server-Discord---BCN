@@ -103,12 +103,12 @@ export async function execute(interaction) {
         value: `**${salary.coefficientTotal}** coins`,
         inline: true
       }, {
-        name: '🧾 Phần lương cố định được tính',
-        value: `**${salary.fixedSalaryIncluded}** coins`,
+        name: '🧾 Tổng lương cố định',
+        value: `**${salary.fixedSalaryTotal}** coins`,
         inline: true
       }, {
         name: '💰 Tổng lương nhận được',
-        value: `**${salary.amount}** coins`,
+        value: `**${salary.totalAmount}** coins`,
         inline: true
       });
 

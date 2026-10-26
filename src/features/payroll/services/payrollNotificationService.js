@@ -147,20 +147,20 @@ export async function generatePayrollPreview(client) {
         fixedSalaryMap,
         hasCoefficientEligibility
       );
-      if (salary.amount === 0) continue;
+      if (salaryInfo.totalAmount === 0) continue;
       
       breakdown.push({
         userId,
         username: member.user.tag,
-        amount: salary.amount,
-        rawAmount: salary.rawAmount,
-        isCapped: salary.isCapped,
-        fixedSalaryAmount: salary.fixedSalaryIncluded,
-        roles: salary.roleDetails
+        amount: salaryInfo.totalAmount,
+        rawAmount: salaryInfo.rawTotalAmount,
+        isCapped: salaryInfo.isCapped,
+        fixedSalaryAmount: salaryInfo.fixedSalaryTotal,
+        roles: salaryInfo.roleDetails
       });
       
-      totalCoinsNeeded += salary.amount;
-      fixedSalaryCoins += salary.fixedSalaryIncluded;
+      totalCoinsNeeded += salaryInfo.totalAmount;
+      fixedSalaryCoins += salaryInfo.fixedSalaryTotal;
     }
     
     console.log(`[Payroll Notification] Total coins needed: ${totalCoinsNeeded}`);
