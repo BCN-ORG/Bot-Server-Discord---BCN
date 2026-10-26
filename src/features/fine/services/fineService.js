@@ -20,9 +20,10 @@ export function hasAuthorizedRole(member, authorizedRoles) {
 /**
  * Create a new fine and send notifications
  */
-export async function createAndNotifyFine(client, violatorId, violator, reason, amount, createdBy) {
+export async function createAndNotifyFine(client, guildId, violatorId, violator, reason, amount, createdBy) {
   // Create fine in database
   const fine = await createFine(
+    guildId,
     violatorId,
     violator.user.username,
     reason,
@@ -141,7 +142,7 @@ export async function processFinePayment(fineId, payerId) {
  */
 export async function sendDailyReminders(client, guildId) {
   try {
-    const unpaidFines = await getUnpaidFines();
+    const unpaidFines = await getUnpaidFines(guildId);
     
     if (unpaidFines.length === 0) {
       console.log('[Fine Reminder] No unpaid fines to remind');
@@ -206,9 +207,9 @@ export async function sendDailyReminders(client, guildId) {
 /**
  * Check and notify unpaid fines when user joins voice channel
  */
-export async function checkAndNotifyVoiceJoin(member, textChannel) {
+export async function checkAndNotifyVoiceJoin(guildId, member, textChannel) {
   try {
-    const unpaidFines = await getFinesByUser(member.id, false);
+    const unpaidFines = await getFinesByUser(guildId, member.id, false);
 
     if (unpaidFines.length === 0) {
       return; // No unpaid fines

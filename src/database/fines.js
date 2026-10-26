@@ -14,11 +14,11 @@ export async function initFineIndexes() {
     // Index for fineId (unique)
     await collection.createIndex({ fineId: 1 }, { unique: true });
     
-    // Index for userId (for filtering)
-    await collection.createIndex({ userId: 1 });
+    // Compound index for guildId + userId (for filtering)
+    await collection.createIndex({ guildId: 1, userId: 1 });
     
-    // Index for isPaid (for filtering unpaid fines)
-    await collection.createIndex({ isPaid: 1 });
+    // Compound index for guildId + isPaid (for filtering unpaid fines)
+    await collection.createIndex({ guildId: 1, isPaid: 1 });
     
     // Index for createdAt (for sorting)
     await collection.createIndex({ createdAt: -1 });
@@ -61,7 +61,7 @@ export async function generateFineId() {
 /**
  * Create a new fine
  */
-export async function createFine(userId, username, reason, amount, createdBy) {
+export async function createFine(guildId, userId, username, reason, amount, createdBy) {
   const db = getDatabase();
   const collection = db.collection(COLLECTION_NAME);
   
@@ -70,6 +70,7 @@ export async function createFine(userId, username, reason, amount, createdBy) {
   
   const fine = {
     fineId,
+    guildId,
     userId,
     username,
     reason,
@@ -100,11 +101,11 @@ export async function getFineById(fineId) {
 /**
  * Get fines by user
  */
-export async function getFinesByUser(userId, isPaid = null) {
+export async function getFinesByUser(guildId, userId, isPaid = null) {
   const db = getDatabase();
   const collection = db.collection(COLLECTION_NAME);
   
-  const filter = { userId };
+  const filter = { guildId, userId };
   if (isPaid !== null) {
     filter.isPaid = isPaid;
   }
@@ -118,11 +119,11 @@ export async function getFinesByUser(userId, isPaid = null) {
 /**
  * Get all fines with pagination and filters
  */
-export async function getAllFines(filters = {}, page = 1, limit = 10) {
+export async function getAllFines(guildId, filters = {}, page = 1, limit = 10) {
   const db = getDatabase();
   const collection = db.collection(COLLECTION_NAME);
   
-  const query = {};
+  const query = { guildId };
   
   if (filters.userId) {
     query.userId = filters.userId;
@@ -157,14 +158,14 @@ export async function getAllFines(filters = {}, page = 1, limit = 10) {
 }
 
 /**
- * Get all unpaid fines
+ * Get all unpaid fines for a guild
  */
-export async function getUnpaidFines() {
+export async function getUnpaidFines(guildId) {
   const db = getDatabase();
   const collection = db.collection(COLLECTION_NAME);
   
   return await collection
-    .find({ isPaid: false })
+    .find({ guildId, isPaid: false })
     .sort({ createdAt: -1 })
     .toArray();
 }

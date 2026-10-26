@@ -35,6 +35,7 @@ export async function execute(interaction) {
     const user = interaction.options.getUser('user');
     const status = interaction.options.getString('status') || 'all';
     const page = interaction.options.getInteger('page') || 1;
+    const guildId = interaction.guild.id;
 
     const filters = {};
     if (user) {
@@ -44,7 +45,7 @@ export async function execute(interaction) {
       filters.status = status;
     }
 
-    const result = await getAllFines(filters, page, 10);
+    const result = await getAllFines(guildId, filters, page, 10);
 
     if (result.fines.length === 0) {
       const embed = new EmbedBuilder()

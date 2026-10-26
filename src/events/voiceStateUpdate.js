@@ -129,7 +129,7 @@ async function checkAndNotifyUnpaidFines(member, voiceChannel) {
     }
 
     // Call fine service to check and notify
-    await checkAndNotifyVoiceJoin(member, textChannel);
+    await checkAndNotifyVoiceJoin(member.guild.id, member, textChannel);
   } catch (error) {
     console.error('[Fine] Error checking unpaid fines:', error);
   }

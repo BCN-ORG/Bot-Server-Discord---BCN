@@ -8,9 +8,10 @@ export const data = new SlashCommandBuilder()
 export async function execute(interaction) {
   try {
     const userId = interaction.user.id;
+    const guildId = interaction.guild.id;
     
     // Get unpaid fines only
-    const unpaidFines = await getFinesByUser(userId, false);
+    const unpaidFines = await getFinesByUser(guildId, userId, false);
 
     if (unpaidFines.length === 0) {
       const embed = new EmbedBuilder()

@@ -81,6 +81,7 @@ export async function handleFineModalSubmit(interaction, client) {
     // Create fine and send notifications
     const fine = await createAndNotifyFine(
       client,
+      interaction.guild.id,
       userId,
       violator,
       reason,
