@@ -49,7 +49,8 @@ export async function registerCommands(token, clientId, guildId) {
     fineFeature.fineList.data.toJSON(),
     fineFeature.fineConfirmPayment.data.toJSON(),
     fineFeature.fineReminderTimes.data.toJSON(),
-    fineFeature.fineAnnouncementChannels.data.toJSON()
+    fineFeature.fineAnnouncementChannels.data.toJSON(),
+    fineFeature.fineDelete.data.toJSON()
   ];
 
   const rest = new REST({ version: '10' }).setToken(token);
@@ -111,7 +112,7 @@ export function setupInteractionHandlers(client) {
       }
 
       if (interaction.isChatInputCommand() && interaction.commandName === 'fine-confirm-payment') {
-        await fineFeature.fineConfirmPayment.execute(interaction);
+        await fineFeature.fineConfirmPayment.execute(interaction, client);
       }
 
       if (interaction.isChatInputCommand() && interaction.commandName === 'fine-reminder-times') {
@@ -120,6 +121,10 @@ export function setupInteractionHandlers(client) {
 
       if (interaction.isChatInputCommand() && interaction.commandName === 'fine-announcement-channels') {
         await fineFeature.fineAnnouncementChannels.execute(interaction);
+      }
+
+      if (interaction.isChatInputCommand() && interaction.commandName === 'fine-delete') {
+        await fineFeature.fineDelete.execute(interaction, client);
       }
 
       if (interaction.isChatInputCommand() && interaction.commandName === 'kick-manager') {

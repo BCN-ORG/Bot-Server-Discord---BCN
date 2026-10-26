@@ -11,7 +11,7 @@ export const data = new SlashCommandBuilder()
       .setRequired(true)
   );
 
-export async function execute(interaction) {
+export async function execute(interaction, client) {
   try {
     await interaction.deferReply({ ephemeral: true });
 
@@ -19,7 +19,7 @@ export async function execute(interaction) {
     const payerId = interaction.user.id;
 
     // Process payment
-    const result = await processFinePayment(fineId, payerId);
+    const result = await processFinePayment(fineId, payerId, client);
 
     if (result.success) {
       const fine = result.fine;

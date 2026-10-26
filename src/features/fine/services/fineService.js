@@ -18,6 +18,48 @@ export function hasAuthorizedRole(member, authorizedRoles) {
 }
 
 /**
+ * Send payment notification to announcement channels
+ */
+async function sendPaymentNotification(client, fine, payerId, reference) {
+  try {
+    const config = await getFineConfig(fine.guildId);
+    const payer = await client.users.fetch(payerId);
+    const violator = await client.users.fetch(fine.userId);
+
+    for (const channelId of config.announcementChannels) {
+      try {
+        const channel = await client.channels.fetch(channelId);
+        if (channel && channel.isTextBased()) {
+          const paymentEmbed = new EmbedBuilder()
+            .setColor('#00ff00')
+            .setTitle('✅ Thông Báo Thanh Toán Phạt')
+            .setDescription(
+              `Biên bản phạt đã được thanh toán!\n\n` +
+              `━━━━━━━━━━━━━━━━━━━━\n\n` +
+              `📋 **Mã biên bản:** ${fine.fineId}\n` +
+              `👤 **Người bị phạt:** ${violator}\n` +
+              `💳 **Người thanh toán:** ${payer}\n` +
+              `💰 **Số tiền:** ${fine.amount} coins\n` +
+              `📝 **Lý do phạt:** ${fine.reason}\n` +
+              `📅 **Ngày lập:** ${new Date(fine.createdAt).toLocaleDateString('vi-VN')}\n` +
+              `📄 **Mã giao dịch:** ${reference}\n\n` +
+              `━━━━━━━━━━━━━━━━━━━━`
+            )
+            .setTimestamp();
+
+          await channel.send({ embeds: [paymentEmbed] });
+          console.log(`[Fine] Sent payment notification to channel ${channel.name}`);
+        }
+      } catch (error) {
+        console.error(`[Fine] Could not send payment notification to channel ${channelId}:`, error.message);
+      }
+    }
+  } catch (error) {
+    console.error('[Fine] Error sending payment notification:', error);
+  }
+}
+
+/**
  * Create a new fine and send notifications
  */
 export async function createAndNotifyFine(client, guildId, violatorId, violator, reason, amount, createdBy) {
@@ -31,6 +73,9 @@ export async function createAndNotifyFine(client, guildId, violatorId, violator,
     createdBy
   );
 
+  // Get creator user
+  const creator = await client.users.fetch(createdBy);
+
   // Send DM to violator
   try {
     const dmEmbed = new EmbedBuilder()
@@ -40,8 +85,10 @@ export async function createAndNotifyFine(client, guildId, violatorId, violator,
         `Bạn đã bị lập biên bản phạt!\n\n` +
         `━━━━━━━━━━━━━━━━━━━━\n\n` +
         `📋 **Mã biên bản:** ${fine.fineId}\n` +
+        `👤 **Người lập:** ${creator}\n` +
         `💰 **Số tiền:** ${fine.amount} coins\n` +
-        `📝 **Lý do:** ${fine.reason}\n\n` +
+        `📝 **Lý do:** ${fine.reason}\n` +
+        `📅 **Ngày lập:** ${new Date(fine.createdAt).toLocaleDateString('vi-VN')}\n\n` +
         `━━━━━━━━━━━━━━━━━━━━\n\n` +
         `💡 Sử dụng lệnh \`/fine-check\` để xem biên bản của bạn\n` +
         `💳 Sử dụng lệnh \`/fine-confirm-payment ${fine.fineId}\` để thanh toán`
@@ -69,8 +116,11 @@ export async function createAndNotifyFine(client, guildId, violatorId, violator,
             `${violator} đã bị lập biên bản phạt!\n\n` +
             `━━━━━━━━━━━━━━━━━━━━\n\n` +
             `📋 **Mã biên bản:** ${fine.fineId}\n` +
+            `👤 **Người lập:** ${creator}\n` +
+            `👥 **Người bị phạt:** ${violator}\n` +
             `💰 **Số tiền:** ${fine.amount} coins\n` +
-            `📝 **Lý do:** ${fine.reason}\n\n` +
+            `📝 **Lý do:** ${fine.reason}\n` +
+            `📅 **Ngày lập:** ${new Date(fine.createdAt).toLocaleDateString('vi-VN')}\n\n` +
             `━━━━━━━━━━━━━━━━━━━━`
           )
           .setTimestamp();
@@ -89,7 +139,7 @@ export async function createAndNotifyFine(client, guildId, violatorId, violator,
 /**
  * Process fine payment
  */
-export async function processFinePayment(fineId, payerId) {
+export async function processFinePayment(fineId, payerId, client) {
   // Get fine
   const fine = await getFineById(fineId);
   
@@ -110,6 +160,11 @@ export async function processFinePayment(fineId, payerId) {
     if (result.success) {
       // Mark fine as paid
       await markFineAsPaid(fineId, payerId, result.reference);
+      
+      // Send payment notification to announcement channels
+      if (client) {
+        await sendPaymentNotification(client, fine, payerId, result.reference);
+      }
       
       return {
         success: true,

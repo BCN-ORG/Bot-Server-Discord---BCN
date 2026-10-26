@@ -340,3 +340,15 @@ export async function removeAnnouncementChannel(guildId, channelId) {
   
   return result.modifiedCount > 0;
 }
+
+/**
+ * Delete a fine by fineId
+ */
+export async function deleteFine(fineId) {
+  const db = getDatabase();
+  const collection = db.collection(COLLECTION_NAME);
+  
+  const result = await collection.deleteOne({ fineId });
+  
+  return result.deletedCount > 0;
+}
