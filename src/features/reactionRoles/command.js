@@ -46,9 +46,9 @@ export const data = new SlashCommandBuilder()
       .addStringOption(option =>
         option
           .setName('emoji')
-          .setDescription('Emoji cần react, hoặc all để chấp nhận mọi emoji')
+          .setDescription('Emoji cần react để nhận role')
           .setMaxLength(100)
-          .setRequired(false)
+          .setRequired(true)
       )
       .addIntegerOption(option =>
         option
@@ -100,7 +100,7 @@ export async function execute(interaction) {
       const messageId = interaction.options.getString('message_id', true).trim();
       const role = interaction.options.getRole('role', true);
       const limit = interaction.options.getInteger('limit', true);
-      const emoji = interaction.options.getString('emoji') || 'all';
+      const emoji = interaction.options.getString('emoji', true); // Required now
       const durationDays = interaction.options.getInteger('duration_days');
       const every = interaction.options.getString('every');
 

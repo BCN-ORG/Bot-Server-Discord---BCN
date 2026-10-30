@@ -64,9 +64,6 @@ function parseEveryTime(every) {
 function normalizeEmoji(input) {
   const value = input.trim();
   if (!value) throw new Error('Emoji không được để trống.');
-  if (value.toLowerCase() === 'all') {
-    return { emojiKey: 'all', emojiLabel: 'all' };
-  }
 
   const customEmoji = value.match(/^<a?:[A-Za-z0-9_]+:(\d{17,20})>$/);
   const customEmojiId = value.match(/^\d{17,20}$/);
@@ -79,9 +76,7 @@ function getReactionEmojiKey(reaction) {
 }
 
 function matchesReactionEmoji(config, emojiKey) {
-  const configuredEmoji = config.emojiKey || config.emojiLabel;
-  return configuredEmoji?.trim().toLowerCase() === 'all'
-    || config.emojiKey === emojiKey;
+  return config.emojiKey === emojiKey;
 }
 
 async function sendRoleNotification(
@@ -420,6 +415,16 @@ export async function setConfig({
 
   const message = await channel.messages.fetch(messageId);
   const { emojiKey, emojiLabel } = normalizeEmoji(emoji);
+  
+  // Xóa tất cả reactions hiện tại trên message
+  await message.reactions.removeAll().catch(error => {
+    console.warn('[WARN] Failed to remove existing reactions:', error);
+  });
+  
+  // Bot react emoji để tạo button
+  await message.react(emojiLabel);
+  console.log(`[Reaction Role] Bot reacted ${emojiLabel} on message ${messageId}`);
+  
   await saveReactionRoleConfig({
     guildId: guild.id,
     channelId: channel.id,
