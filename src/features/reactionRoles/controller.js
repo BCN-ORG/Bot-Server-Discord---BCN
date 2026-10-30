@@ -7,6 +7,7 @@ import {
   getReactionRoleConfigsForGuild,
   getReactionRoleConfigsForMessage,
   getExpiredReactionRoleClaims,
+  getScheduledReactionRoleConfigs,
   removeExpiredReactionRoleClaim,
   removeReactionRoleClaim,
   removeReactionRoleClaimEmoji,
@@ -47,6 +48,18 @@ function isClaimActive(claim, now = new Date()) {
 function getClaimExpireAt(durationDays) {
   if (!durationDays) return null;
   return new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
+}
+
+function parseEveryTime(every) {
+  if (!every) return null;
+  const match = every.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) throw new Error('Format giờ không hợp lệ. Dùng HH:mm (ví dụ: 08:20)');
+  const hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    throw new Error('Giờ phải từ 00:00 đến 23:59');
+  }
+  return { hours, minutes };
 }
 
 function normalizeEmoji(input) {
@@ -353,6 +366,17 @@ export async function handleReactionRoleRemove(reaction, user) {
     ));
     if (!matchingConfigs.length) return;
 
+    // Chặn thu hồi reaction - re-add reaction ngay lập tức
+    try {
+      await reaction.users.add(user.id);
+      console.log(`[Reaction Role] Prevented ${user.tag} from removing reaction - re-added automatically`);
+    } catch (error) {
+      console.error(`[ERROR] Failed to re-add reaction for ${user.tag}:`, error);
+    }
+
+    // KHÔNG xử lý remove role nữa - giữ nguyên role
+    // Code cũ đã bị comment out
+    /*
     const member = await context.guild.members.fetch(user.id);
     for (const config of matchingConfigs) {
       await withRoleLock(roleLockKey(config.guildId, config.roleId), async () => {
@@ -362,6 +386,7 @@ export async function handleReactionRoleRemove(reaction, user) {
         await processReactionRemove({ ...config, role }, reaction, member);
       });
     }
+    */
   } catch (error) {
     console.error('[ERROR] Failed to process reaction role remove:', error);
   }
@@ -374,7 +399,8 @@ export async function setConfig({
   role,
   limit,
   emoji,
-  durationDays
+  durationDays,
+  every
 }) {
   if (!snowflakePattern.test(messageId)) {
     throw new Error('Message ID không hợp lệ.');
@@ -389,6 +415,10 @@ export async function setConfig({
   ) {
     throw new Error('Thời hạn phải là số nguyên từ 1 đến 36.500 ngày.');
   }
+  if (durationDays && every) {
+    throw new Error('Không thể đặt cả duration_days và every cùng lúc.');
+  }
+  const everyTime = parseEveryTime(every);
   if (channel.guildId !== guild.id) {
     throw new Error('Kênh phải thuộc server hiện tại.');
   }
@@ -419,12 +449,17 @@ export async function setConfig({
     emojiKey,
     emojiLabel,
     limit,
-    durationDays
+    durationDays,
+    every: everyTime ? `${String(everyTime.hours).padStart(2, '0')}:${String(everyTime.minutes).padStart(2, '0')}` : null
   });
+
+  let durationText = 'không hết hạn';
+  if (durationDays) durationText = `${durationDays} ngày`;
+  else if (everyTime) durationText = `gỡ mỗi ngày lúc ${String(everyTime.hours).padStart(2, '0')}:${String(everyTime.minutes).padStart(2, '0')}`;
 
   return `Đã lưu cấu hình: ${role} trên tin nhắn \`${message.id}\`, ` +
     `emoji \`${emojiLabel}\`, giới hạn **${limit}** thành viên, ` +
-    `thời hạn **${durationDays ? `${durationDays} ngày` : 'không hết hạn'}**.`;
+    `thời hạn **${durationText}**.`;
 }
 
 export async function deleteConfig(guild, messageId, roleId) {
@@ -562,5 +597,81 @@ export async function processExpiredReactionRoleClaims(client) {
         error
       );
     });
+  }
+}
+
+export async function processScheduledReactionRoleRevoke(client) {
+  const now = new Date();
+  const currentHours = now.getHours();
+  const currentMinutes = now.getMinutes();
+  const currentTime = `${String(currentHours).padStart(2, '0')}:${String(currentMinutes).padStart(2, '0')}`;
+
+  const scheduledConfigs = await getScheduledReactionRoleConfigs(currentTime);
+
+  for (const config of scheduledConfigs) {
+    for (const claimant of config.claimants || []) {
+      await withRoleLock(roleLockKey(config.guildId, config.roleId), async () => {
+        const guild = client.guilds.cache.get(config.guildId);
+        if (!guild) {
+          console.warn(
+            `[WARN] Guild ${config.guildId} unavailable for scheduled revoke of role ${config.roleId}`
+          );
+          return;
+        }
+
+        let member;
+        try {
+          member = await guild.members.fetch(claimant.userId);
+        } catch (error) {
+          if (error.code === 10007 || error.code === 10013) {
+            await removeReactionRoleClaim(config, claimant.userId);
+            return;
+          }
+          throw error;
+        }
+
+        const otherClaims = await getReactionRoleClaimsForRole(
+          config.guildId,
+          config.roleId,
+          claimant.userId
+        );
+        const hasOtherActiveClaim = otherClaims.some(claim => (
+          claim.messageId !== config.messageId
+          && isClaimActive(claim, now)
+        ));
+
+        if (
+          !hasOtherActiveClaim
+          && !claimant.roleWasPreexisting
+          && member.roles.cache.has(config.roleId)
+        ) {
+          const role = guild.roles.cache.get(config.roleId)
+            || await guild.roles.fetch(config.roleId).catch(error => {
+              if (error.code === 10011) return null;
+              throw error;
+            });
+          if (role) {
+            await member.roles.remove(role, 'Reaction role scheduled revoke');
+            await sendRoleNotification(
+              member,
+              role,
+              guild,
+              'revoked',
+              `Role được gỡ theo lịch hàng ngày lúc ${config.every}.`
+            );
+          }
+        }
+
+        await removeReactionRoleClaim(config, claimant.userId);
+        console.info(
+          `[INFO] Scheduled revoke reaction role for member ${claimant.userId}, role ${config.roleId} at ${config.every}`
+        );
+      }).catch(error => {
+        console.error(
+          `[ERROR] Failed scheduled revoke for member ${claimant.userId}, role ${config.roleId}:`,
+          error
+        );
+      });
+    }
   }
 }

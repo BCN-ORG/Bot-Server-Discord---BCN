@@ -37,6 +37,7 @@ export async function saveReactionRoleConfig(config) {
         emojiLabel: config.emojiLabel,
         limit: config.limit,
         durationDays: config.durationDays ?? null,
+        every: config.every ?? null,
         updatedAt: now
       },
       $setOnInsert: {
@@ -192,9 +193,11 @@ export async function deleteReactionRoleConfig(guildId, messageId, roleId) {
   return getCollection().deleteOne({ guildId, messageId, roleId });
 }
 
-export async function removeReactionRoleClaimsForMember(guildId, userId) {
-  return getCollection().updateMany(
-    { guildId, 'claimants.userId': userId },
-    { $pull: { claimants: { userId } } }
-  );
+export async function getScheduledReactionRoleConfigs(currentTime) {
+  return getCollection()
+    .find({
+      every: currentTime,
+      'claimants.0': { $exists: true }
+    })
+    .toArray();
 }

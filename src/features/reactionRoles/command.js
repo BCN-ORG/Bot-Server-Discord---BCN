@@ -58,6 +58,18 @@ export const data = new SlashCommandBuilder()
           .setMaxValue(36500)
           .setRequired(false)
       )
+      .addStringOption(option =>
+        option
+          .setName('every')
+          .setDescription('Gỡ role lúc mấy giờ mỗi ngày (HH:mm, ví dụ: 08:20); conflict với duration_days')
+          .setRequired(false)
+      )
+      .addStringOption(option =>
+        option
+          .setName('every')
+          .setDescription('Gỡ role lúc mấy giờ mỗi ngày (HH:mm, ví dụ: 08:20); conflict với duration_days')
+          .setRequired(false)
+      )
   )
   .addSubcommand(subcommand =>
     subcommand
@@ -96,6 +108,7 @@ export async function execute(interaction) {
       const limit = interaction.options.getInteger('limit', true);
       const emoji = interaction.options.getString('emoji') || 'all';
       const durationDays = interaction.options.getInteger('duration_days');
+      const every = interaction.options.getString('every');
 
       const result = await setConfig({
         guild: interaction.guild,
@@ -104,7 +117,8 @@ export async function execute(interaction) {
         role,
         limit,
         emoji,
-        durationDays
+        durationDays,
+        every
       });
       await interaction.reply({ content: result, ephemeral: true });
       return;
@@ -127,12 +141,15 @@ export async function execute(interaction) {
     const configs = await listConfigs(interaction.guild.id);
     const displayedConfigs = configs.slice(0, 20);
     const content = configs.length
-      ? displayedConfigs.map(config => (
-        `• Tin nhắn \`${config.messageId}\` → <@&${config.roleId}> | ` +
-        `emoji: \`${config.emojiLabel}\` | limit: **${config.limit}** | ` +
-        `thời hạn: **${config.durationDays ? `${config.durationDays} ngày` : 'không hết hạn'}** | ` +
-        `đã nhận: **${config.claimants?.length || 0}**`
-      )).join('\n')
+      ? displayedConfigs.map(config => {
+        let duration = 'không hết hạn';
+        if (config.durationDays) duration = `${config.durationDays} ngày`;
+        else if (config.every) duration = `mỗi ngày lúc ${config.every}`;
+        return `• Tin nhắn \`${config.messageId}\` → <@&${config.roleId}> | ` +
+          `emoji: \`${config.emojiLabel}\` | limit: **${config.limit}** | ` +
+          `thời hạn: **${duration}** | ` +
+          `đã nhận: **${config.claimants?.length || 0}**`;
+      }).join('\n')
       : 'Server chưa có cấu hình reaction role.';
     const suffix = configs.length > displayedConfigs.length
       ? `\n... và ${configs.length - displayedConfigs.length} cấu hình khác.`

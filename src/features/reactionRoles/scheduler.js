@@ -1,13 +1,16 @@
 import cron from 'node-cron';
-import { processExpiredReactionRoleClaims } from './controller.js';
+import { processExpiredReactionRoleClaims, processScheduledReactionRoleRevoke } from './controller.js';
 
-let currentJob = null;
+let expiryJob = null;
+let scheduleJob = null;
 
 export async function initReactionRoleScheduler(client) {
-  if (currentJob) currentJob.stop();
+  if (expiryJob) expiryJob.stop();
+  if (scheduleJob) scheduleJob.stop();
 
+  // Job 1: Check duration-based expiry every minute
   await processExpiredReactionRoleClaims(client);
-  currentJob = cron.schedule('* * * * *', async () => {
+  expiryJob = cron.schedule('* * * * *', async () => {
     try {
       await processExpiredReactionRoleClaims(client);
     } catch (error) {
@@ -15,5 +18,15 @@ export async function initReactionRoleScheduler(client) {
     }
   });
 
-  console.log('[INFO] Reaction role expiry scheduler started (runs every minute)');
+  // Job 2: Check scheduled revoke every minute
+  await processScheduledReactionRoleRevoke(client);
+  scheduleJob = cron.schedule('* * * * *', async () => {
+    try {
+      await processScheduledReactionRoleRevoke(client);
+    } catch (error) {
+      console.error('[ERROR] Reaction role scheduled revoke failed:', error);
+    }
+  });
+
+  console.log('[INFO] Reaction role schedulers started (expiry + scheduled revoke)');
 }
