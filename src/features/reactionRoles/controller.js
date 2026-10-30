@@ -10,7 +10,6 @@ import {
   getScheduledReactionRoleConfigs,
   removeExpiredReactionRoleClaim,
   removeReactionRoleClaim,
-  removeReactionRoleClaimEmoji,
   removeReactionRoleClaimsForMember,
   saveReactionRoleConfig,
   setReactionRoleClaimsPreExisting,
@@ -284,47 +283,6 @@ async function processReactionAdd(config, reaction, member) {
   return false;
 }
 
-async function processReactionRemove(config, reaction, member) {
-  const emojiKey = getReactionEmojiKey(reaction);
-  const currentConfig = await getReactionRoleConfig(
-    config.guildId,
-    config.messageId,
-    config.roleId
-  );
-  if (!currentConfig) return;
-
-  const claimant = currentConfig.claimants?.find(claim => claim.userId === member.id);
-  if (!claimant?.emojiKeys?.includes(emojiKey)) return;
-
-  const removedClaim = await removeReactionRoleClaimEmoji(currentConfig, member.id, emojiKey);
-  if (!removedClaim) return;
-
-  const remainingClaims = await getReactionRoleClaimsForRole(
-    config.guildId,
-    config.roleId,
-    member.id
-  );
-  const otherClaims = remainingClaims.filter(claim => (
-    claim.messageId !== config.messageId && isClaimActive(claim)
-  ));
-  if (otherClaims.length || removedClaim.roleWasPreexisting) {
-    await removeReactionRoleClaim(currentConfig, member.id);
-    return;
-  }
-
-  if (member.roles.cache.has(config.roleId)) {
-    await member.roles.remove(config.roleId, 'Reaction role reaction removed');
-    await sendRoleNotification(
-      member,
-      config.role,
-      member.guild,
-      'revoked',
-      'Bạn đã hủy reaction dùng để nhận role.'
-    );
-  }
-  await removeReactionRoleClaim(currentConfig, member.id);
-}
-
 export async function handleReactionRoleAdd(reaction, user) {
   try {
     const context = await fetchReactionContext(reaction, user);
@@ -397,20 +355,6 @@ export async function handleReactionRoleRemove(reaction, user) {
     } catch (error) {
       console.error(`[ERROR] Failed to re-add reaction for ${user.tag}:`, error);
     }
-
-    // KHÔNG xử lý remove role nữa - giữ nguyên role
-    // Code cũ đã bị comment out
-    /*
-    const member = await context.guild.members.fetch(user.id);
-    for (const config of matchingConfigs) {
-      await withRoleLock(roleLockKey(config.guildId, config.roleId), async () => {
-        const role = context.guild.roles.cache.get(config.roleId)
-          || await context.guild.roles.fetch(config.roleId)
-          || { id: config.roleId, name: `ID ${config.roleId}` };
-        await processReactionRemove({ ...config, role }, reaction, member);
-      });
-    }
-    */
   } catch (error) {
     console.error('[ERROR] Failed to process reaction role remove:', error);
   }
