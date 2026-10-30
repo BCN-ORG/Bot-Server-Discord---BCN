@@ -92,7 +92,8 @@ async function sendRoleNotification(
   action,
   reason,
   expireAt = null,
-  durationDays = null
+  durationDays = null,
+  every = null
 ) {
   const isGranted = action === 'granted';
   const roleName = role?.name || `ID ${role?.id || 'không xác định'}`;
@@ -109,11 +110,17 @@ async function sendRoleNotification(
       .addFields({ name: 'Lý do', value: reason });
 
     if (isGranted) {
+      let durationText = 'Không thời hạn';
+      if (durationDays) durationText = `${durationDays} ngày`;
+      else if (every) durationText = `Gỡ tự động mỗi ngày lúc ${every}`;
+      
       embed.addFields({
         name: 'Thời gian sử dụng role',
-        value: durationDays ? `${durationDays} ngày` : 'Không thời hạn'
+        value: durationText
       });
-      if (expireAt) {
+      
+      // Chỉ hiển thị expireAt khi dùng duration (hook), không hiển thị với every (schedule)
+      if (expireAt && durationDays) {
         embed.addFields({
           name: 'Thời điểm hết hạn',
           value: `<t:${Math.floor(expireAt.getTime() / 1000)}:F>`
@@ -191,7 +198,8 @@ async function processReactionAdd(config, reaction, member) {
         'granted',
         'Bạn đã đăng ký nhận role bằng reaction.',
         existingClaim.expireAt,
-        refreshedConfig.durationDays
+        refreshedConfig.durationDays,
+        refreshedConfig.every
       );
     }
     return false;
@@ -234,7 +242,8 @@ async function processReactionAdd(config, reaction, member) {
           'granted',
           'Bạn đã đăng ký nhận role bằng reaction.',
           concurrentlyAddedClaim.expireAt,
-          latestConfig.durationDays
+          latestConfig.durationDays,
+          latestConfig.every
         );
       }
       return false;
@@ -264,7 +273,8 @@ async function processReactionAdd(config, reaction, member) {
         'granted',
         'Bạn đã đăng ký nhận role bằng reaction.',
         expireAt,
-        currentConfig.durationDays
+        currentConfig.durationDays,
+        currentConfig.every
       );
     }
   } catch (error) {
