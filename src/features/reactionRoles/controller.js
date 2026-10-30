@@ -456,7 +456,26 @@ export async function setConfig({
 
   let durationText = 'không hết hạn';
   if (durationDays) durationText = `${durationDays} ngày`;
-  else if (everyTime) durationText = `gỡ mỗi ngày lúc ${String(everyTime.hours).padStart(2, '0')}:${String(everyTime.minutes).padStart(2, '0')}`;
+  else if (everyTime) {
+    const now = new Date();
+    const targetTime = new Date(now);
+    targetTime.setHours(everyTime.hours, everyTime.minutes, 0, 0);
+    
+    // Nếu giờ target đã qua hôm nay, tính sang ngày mai
+    if (targetTime <= now) {
+      targetTime.setDate(targetTime.getDate() + 1);
+    }
+    
+    const diffMs = targetTime - now;
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    
+    let countdown = '';
+    if (diffHours > 0) countdown = `còn ${diffHours} giờ ${diffMinutes} phút`;
+    else countdown = `còn ${diffMinutes} phút`;
+    
+    durationText = `gỡ mỗi ngày lúc ${String(everyTime.hours).padStart(2, '0')}:${String(everyTime.minutes).padStart(2, '0')} (${countdown})`;
+  }
   console.log('[DEBUG] durationText result:', durationText, { durationDays, everyTime });
 
   return `Đã lưu cấu hình: ${role} trên tin nhắn \`${message.id}\`, ` +
