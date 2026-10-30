@@ -89,6 +89,9 @@ export async function execute(interaction) {
 
     const subcommand = interaction.options.getSubcommand();
     if (subcommand === 'set') {
+      // Defer reply ngay để tránh timeout khi tìm message
+      await interaction.deferReply({ flags: 64 }); // Ephemeral
+      
       const messageId = interaction.options.getString('message_id', true).trim();
       const role = interaction.options.getRole('role', true);
       const limit = interaction.options.getInteger('limit', true);
@@ -105,23 +108,23 @@ export async function execute(interaction) {
         durationDays,
         every
       });
-      await interaction.reply({ 
-        content: result, 
-        flags: 64 // MessageFlags.Ephemeral
+      await interaction.editReply({ 
+        content: result
       });
       return;
     }
 
     if (subcommand === 'remove') {
+      await interaction.deferReply({ flags: 64 });
+      
       const messageId = interaction.options.getString('message_id', true).trim();
       const role = interaction.options.getRole('role', true);
       const roleId = role.id;
       const removed = await deleteConfig(interaction.guild, messageId, roleId);
-      await interaction.reply({
+      await interaction.editReply({
         content: removed
           ? `Đã xóa cấu hình role ${role} khỏi tin nhắn \`${messageId}\`.`
-          : 'Không tìm thấy cấu hình tương ứng.',
-        ephemeral: true
+          : 'Không tìm thấy cấu hình tương ứng.'
       });
       return;
     }
@@ -145,16 +148,18 @@ export async function execute(interaction) {
 
     await interaction.reply({
       content: `${content}${suffix}`.slice(0, 1900),
-      ephemeral: true
+      flags: 64
     });
   } catch (error) {
     console.error('[ERROR] Reaction role command failed:', error);
     const message = `Không thể xử lý cấu hình reaction role: ${error.message}`;
     try {
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp({ content: message, ephemeral: true });
+      if (interaction.deferred) {
+        await interaction.editReply({ content: message });
+      } else if (interaction.replied) {
+        await interaction.followUp({ content: message, flags: 64 });
       } else {
-        await interaction.reply({ content: message, ephemeral: true });
+        await interaction.reply({ content: message, flags: 64 });
       }
     } catch (replyError) {
       console.error('[ERROR] Failed to send error message:', replyError);
