@@ -350,7 +350,8 @@ export async function handleReactionRoleRemove(reaction, user) {
 
     // Chặn thu hồi reaction - re-add reaction ngay lập tức
     try {
-      await reaction.users.add(user.id);
+      const message = reaction.message;
+      await message.react(reaction.emoji);
       console.log(`[Reaction Role] ✅ Prevented ${user.tag} from removing reaction - re-added automatically`);
     } catch (error) {
       console.error(`[ERROR] Failed to re-add reaction for ${user.tag}:`, error);
@@ -576,6 +577,26 @@ export async function processExpiredReactionRoleClaims(client) {
         }
       }
 
+      // Gỡ reaction của user khi role hết hạn
+      try {
+        const channel = guild.channels.cache.get(config.channelId);
+        if (channel) {
+          const message = await channel.messages.fetch(config.messageId).catch(() => null);
+          if (message) {
+            const reactionToRemove = message.reactions.cache.find(r => {
+              const emojiKey = r.emoji.id || r.emoji.name;
+              return config.emojiKey === emojiKey || config.emojiKey === 'all';
+            });
+            if (reactionToRemove) {
+              await reactionToRemove.users.remove(claimant.userId);
+              console.log(`[Reaction Role] Removed reaction for expired role from user ${claimant.userId}`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`[ERROR] Failed to remove reaction for expired role:`, error);
+      }
+
       await removeExpiredReactionRoleClaim(config, claimant.userId, now);
       console.info(
         `[INFO] Expired reaction role claim for member ${claimant.userId}, role ${roleId}`
@@ -649,6 +670,27 @@ export async function processScheduledReactionRoleRevoke(client) {
               `Role được gỡ theo lịch hàng ngày lúc ${config.every}.`
             );
           }
+        }
+
+        // Gỡ reaction của user khi đến giờ scheduled revoke
+        try {
+          const channel = guild.channels.cache.get(config.channelId);
+          if (channel) {
+            const message = await channel.messages.fetch(config.messageId).catch(() => null);
+            if (message) {
+              // Tìm reaction tương ứng với config
+              const reactionToRemove = message.reactions.cache.find(r => {
+                const emojiKey = r.emoji.id || r.emoji.name;
+                return config.emojiKey === emojiKey || config.emojiKey === 'all';
+              });
+              if (reactionToRemove) {
+                await reactionToRemove.users.remove(claimant.userId);
+                console.log(`[Reaction Role] Removed reaction for scheduled revoke from user ${claimant.userId}`);
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`[ERROR] Failed to remove reaction for scheduled revoke:`, error);
         }
 
         await removeReactionRoleClaim(config, claimant.userId);
