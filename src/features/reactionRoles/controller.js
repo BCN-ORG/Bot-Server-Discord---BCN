@@ -367,7 +367,6 @@ export async function handleReactionRoleRemove(reaction, user) {
 
 export async function setConfig({
   guild,
-  channel,
   messageId,
   role,
   limit,
@@ -393,9 +392,28 @@ export async function setConfig({
   }
   const everyTime = parseEveryTime(every);
   console.log('[DEBUG] setConfig called with:', { durationDays, every, everyTime });
-  if (channel.guildId !== guild.id) {
-    throw new Error('Kênh phải thuộc server hiện tại.');
+  
+  // Tìm message trong tất cả channels của guild
+  let message = null;
+  let channel = null;
+  
+  for (const ch of guild.channels.cache.values()) {
+    if (ch.isTextBased()) {
+      try {
+        message = await ch.messages.fetch(messageId);
+        channel = ch;
+        break;
+      } catch (error) {
+        // Message không ở channel này, thử channel khác
+        continue;
+      }
+    }
   }
+  
+  if (!message) {
+    throw new Error('Không tìm thấy tin nhắn. Hãy chắc chắn bot có quyền xem kênh đó.');
+  }
+  
   if (role.guild.id !== guild.id || role.id === guild.id || role.managed) {
     throw new Error('Role không hợp lệ hoặc không thể cấp bởi bot.');
   }
@@ -413,7 +431,6 @@ export async function setConfig({
     throw new Error('Bot cần quyền xem kênh, đọc lịch sử tin nhắn và quản lý tin nhắn trong kênh.');
   }
 
-  const message = await channel.messages.fetch(messageId);
   const { emojiKey, emojiLabel } = normalizeEmoji(emoji);
   
   // Xóa tất cả reactions hiện tại trên message

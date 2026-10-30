@@ -17,13 +17,6 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName('set')
       .setDescription('Tạo hoặc cập nhật cấu hình reaction role')
-      .addChannelOption(option =>
-        option
-          .setName('channel')
-          .setDescription('Kênh chứa tin nhắn')
-          .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
-          .setRequired(true)
-      )
       .addStringOption(option =>
         option
           .setName('message_id')
@@ -96,7 +89,6 @@ export async function execute(interaction) {
 
     const subcommand = interaction.options.getSubcommand();
     if (subcommand === 'set') {
-      const channel = interaction.options.getChannel('channel', true);
       const messageId = interaction.options.getString('message_id', true).trim();
       const role = interaction.options.getRole('role', true);
       const limit = interaction.options.getInteger('limit', true);
@@ -106,7 +98,6 @@ export async function execute(interaction) {
 
       const result = await setConfig({
         guild: interaction.guild,
-        channel,
         messageId,
         role,
         limit,
