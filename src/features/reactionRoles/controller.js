@@ -360,26 +360,40 @@ export async function handleReactionRoleAdd(reaction, user) {
 
 export async function handleReactionRoleRemove(reaction, user) {
   try {
+    console.log(`[DEBUG] handleReactionRoleRemove called for user ${user.tag} on message ${reaction.message.id}`);
+    
     const context = await fetchReactionContext(reaction, user);
-    if (!context) return;
+    if (!context) {
+      console.log(`[DEBUG] No context found - bot user or no guild`);
+      return;
+    }
 
     const emojiKey = getReactionEmojiKey(reaction);
+    console.log(`[DEBUG] Emoji key: ${emojiKey}`);
+    
     const configs = await getReactionRoleConfigsForMessage(
       context.guild.id,
       context.message.id
     );
+    console.log(`[DEBUG] Found ${configs.length} configs for this message`);
+    
     const matchingConfigs = configs.filter(config => (
       matchesReactionEmoji(config, emojiKey)
       || config.claimants?.some(claim => (
         claim.userId === user.id && claim.emojiKeys?.includes(emojiKey)
       ))
     ));
-    if (!matchingConfigs.length) return;
+    console.log(`[DEBUG] ${matchingConfigs.length} matching configs`);
+    
+    if (!matchingConfigs.length) {
+      console.log(`[DEBUG] No matching configs - exiting`);
+      return;
+    }
 
     // Chặn thu hồi reaction - re-add reaction ngay lập tức
     try {
       await reaction.users.add(user.id);
-      console.log(`[Reaction Role] Prevented ${user.tag} from removing reaction - re-added automatically`);
+      console.log(`[Reaction Role] ✅ Prevented ${user.tag} from removing reaction - re-added automatically`);
     } catch (error) {
       console.error(`[ERROR] Failed to re-add reaction for ${user.tag}:`, error);
     }
