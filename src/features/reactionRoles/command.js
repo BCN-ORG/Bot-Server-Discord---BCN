@@ -114,7 +114,10 @@ export async function execute(interaction) {
         durationDays,
         every
       });
-      await interaction.reply({ content: result, ephemeral: true });
+      await interaction.reply({ 
+        content: result, 
+        flags: 64 // MessageFlags.Ephemeral
+      });
       return;
     }
 
@@ -156,10 +159,14 @@ export async function execute(interaction) {
   } catch (error) {
     console.error('[ERROR] Reaction role command failed:', error);
     const message = `Không thể xử lý cấu hình reaction role: ${error.message}`;
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({ content: message, ephemeral: true });
-    } else {
-      await interaction.reply({ content: message, ephemeral: true });
+    try {
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({ content: message, ephemeral: true });
+      } else {
+        await interaction.reply({ content: message, ephemeral: true });
+      }
+    } catch (replyError) {
+      console.error('[ERROR] Failed to send error message:', replyError);
     }
   }
 }
