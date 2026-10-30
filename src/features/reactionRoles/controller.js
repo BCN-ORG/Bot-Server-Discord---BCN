@@ -348,23 +348,22 @@ export async function handleReactionRoleRemove(reaction, user) {
       return;
     }
 
-    // Chặn thu hồi reaction - re-add reaction ngay lập tức
+    // Không thể ngăn user unreact (Discord API limitation)
+    // Giải pháp: Giữ role cho user, chỉ gỡ khi hết hạn
     try {
-      const message = reaction.message;
-      // Không thể force user react, nhưng có thể ngăn việc xóa bằng cách
-      // giữ reaction của bot hoặc thông báo
-      // Thực tế: Discord API không cho phép bot add reaction cho user khác
-      // Giải pháp: Tạo lại reaction nếu là emoji của bot
+      // Gửi DM cảnh báo user
+      const member = await context.guild.members.fetch(user.id);
+      await member.send({
+        content: `⚠️ **Cảnh báo:** Bạn đã gỡ reaction trong **${context.guild.name}**.\n\n` +
+          `Role của bạn vẫn được giữ nguyên và chỉ được gỡ tự động khi hết hạn.\n` +
+          `Vui lòng không spam react/unreact.`
+      }).catch(() => {
+        console.log(`[Reaction Role] Cannot DM user ${user.tag} about unreact`);
+      });
       
-      // Nếu reaction này chưa có reaction của bot, bot sẽ react
-      const botReacted = reaction.users.cache.has(message.client.user.id);
-      if (!botReacted) {
-        await message.react(reaction.emoji);
-      }
-      
-      console.log(`[Reaction Role] User ${user.tag} tried to remove reaction - maintaining bot reaction`);
+      console.log(`[Reaction Role] User ${user.tag} removed reaction - role kept until expiry`);
     } catch (error) {
-      console.error(`[ERROR] Failed to maintain reaction after user removal:`, error);
+      console.error(`[ERROR] Failed to handle unreact:`, error);
     }
   } catch (error) {
     console.error('[ERROR] Failed to process reaction role remove:', error);
