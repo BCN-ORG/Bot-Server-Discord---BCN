@@ -419,6 +419,7 @@ export async function setConfig({
     throw new Error('Không thể đặt cả duration_days và every cùng lúc.');
   }
   const everyTime = parseEveryTime(every);
+  console.log('[DEBUG] setConfig called with:', { durationDays, every, everyTime });
   if (channel.guildId !== guild.id) {
     throw new Error('Kênh phải thuộc server hiện tại.');
   }
@@ -456,6 +457,7 @@ export async function setConfig({
   let durationText = 'không hết hạn';
   if (durationDays) durationText = `${durationDays} ngày`;
   else if (everyTime) durationText = `gỡ mỗi ngày lúc ${String(everyTime.hours).padStart(2, '0')}:${String(everyTime.minutes).padStart(2, '0')}`;
+  console.log('[DEBUG] durationText result:', durationText, { durationDays, everyTime });
 
   return `Đã lưu cấu hình: ${role} trên tin nhắn \`${message.id}\`, ` +
     `emoji \`${emojiLabel}\`, giới hạn **${limit}** thành viên, ` +
