@@ -193,6 +193,13 @@ export async function deleteReactionRoleConfig(guildId, messageId, roleId) {
   return getCollection().deleteOne({ guildId, messageId, roleId });
 }
 
+export async function removeReactionRoleClaimsForMember(guildId, userId) {
+  return getCollection().updateMany(
+    { guildId, 'claimants.userId': userId },
+    { $pull: { claimants: { userId } } }
+  );
+}
+
 export async function getScheduledReactionRoleConfigs(currentTime) {
   return getCollection()
     .find({
