@@ -351,10 +351,20 @@ export async function handleReactionRoleRemove(reaction, user) {
     // Chặn thu hồi reaction - re-add reaction ngay lập tức
     try {
       const message = reaction.message;
-      await message.react(reaction.emoji);
-      console.log(`[Reaction Role] ✅ Prevented ${user.tag} from removing reaction - re-added automatically`);
+      // Không thể force user react, nhưng có thể ngăn việc xóa bằng cách
+      // giữ reaction của bot hoặc thông báo
+      // Thực tế: Discord API không cho phép bot add reaction cho user khác
+      // Giải pháp: Tạo lại reaction nếu là emoji của bot
+      
+      // Nếu reaction này chưa có reaction của bot, bot sẽ react
+      const botReacted = reaction.users.cache.has(message.client.user.id);
+      if (!botReacted) {
+        await message.react(reaction.emoji);
+      }
+      
+      console.log(`[Reaction Role] User ${user.tag} tried to remove reaction - maintaining bot reaction`);
     } catch (error) {
-      console.error(`[ERROR] Failed to re-add reaction for ${user.tag}:`, error);
+      console.error(`[ERROR] Failed to maintain reaction after user removal:`, error);
     }
   } catch (error) {
     console.error('[ERROR] Failed to process reaction role remove:', error);
