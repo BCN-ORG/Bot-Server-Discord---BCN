@@ -64,12 +64,6 @@ export const data = new SlashCommandBuilder()
           .setDescription('Gỡ role lúc mấy giờ mỗi ngày (HH:mm, ví dụ: 08:20); conflict với duration_days')
           .setRequired(false)
       )
-      .addStringOption(option =>
-        option
-          .setName('every')
-          .setDescription('Gỡ role lúc mấy giờ mỗi ngày (HH:mm, ví dụ: 08:20); conflict với duration_days')
-          .setRequired(false)
-      )
   )
   .addSubcommand(subcommand =>
     subcommand
