@@ -26,6 +26,7 @@ export async function registerCommands(token, clientId, guildId) {
     renameFeature.command.toJSON(),
     schedulerFeature.data.toJSON(),
     reactionRolesFeature.data.toJSON(),
+    reactionRolesFeature.contextMenuData.toJSON(), // Context menu for reaction role
     temporaryRolesFeature.data.toJSON(),
     kickManagerFeature.data.toJSON(),
     coinRandomFeature.data.toJSON(),
@@ -38,6 +39,7 @@ export async function registerCommands(token, clientId, guildId) {
     payrollFeature.salaryPayoutNow.data.toJSON(),
     payrollFeature.salaryNotificationSchedule.data.toJSON(),
     payrollFeature.salaryNotificationRoles.data.toJSON(),
+    payrollFeature.salaryNotificationTest.data.toJSON(),
     payrollFeature.salaryDebts.data.toJSON(),
     payrollFeature.salaryDebtDetail.data.toJSON(),
     payrollFeature.salaryPayDebt.data.toJSON(),
@@ -91,6 +93,11 @@ export function setupInteractionHandlers(client) {
 
       if (interaction.isChatInputCommand() && interaction.commandName === 'reaction-role') {
         await reactionRolesFeature.execute(interaction);
+      }
+
+      // Context menu for reaction role setup
+      if (interaction.isMessageContextMenuCommand() && interaction.commandName === 'Setup Reaction Role') {
+        await reactionRolesFeature.contextMenuExecute(interaction);
       }
 
       if (interaction.isChatInputCommand() && interaction.commandName === 'role') {
@@ -192,6 +199,11 @@ export function setupInteractionHandlers(client) {
         await payrollFeature.salaryNotificationRoles.execute(interaction);
       }
 
+      // Xu ly lenh /salary-notification-test
+      if (interaction.isChatInputCommand() && interaction.commandName === 'salary-notification-test') {
+        await payrollFeature.salaryNotificationTest.execute(interaction, client);
+      }
+
       // Xu ly lenh /salary-debts
       if (interaction.isChatInputCommand() && interaction.commandName === 'salary-debts') {
         await payrollFeature.salaryDebts.execute(interaction);
@@ -256,6 +268,11 @@ export function setupInteractionHandlers(client) {
       // Xu ly submit modal
       if (interaction.isModalSubmit() && interaction.customId === 'rename_modal') {
         await renameFeature.handleModalSubmit(interaction);
+      }
+
+      // Handle reaction role modal
+      if (interaction.isModalSubmit() && interaction.customId.startsWith('reaction_role_modal:')) {
+        await reactionRolesFeature.handleReactionRoleModal(interaction);
       }
 
       // Handle fine create modal

@@ -10,6 +10,7 @@ import * as salarySchedule from './commands/salarySchedule.js';
 import * as salaryPayoutNow from './commands/salaryPayoutNow.js';
 import * as salaryNotificationSchedule from './commands/salaryNotificationSchedule.js';
 import * as salaryNotificationRoles from './commands/salaryNotificationRoles.js';
+import * as salaryNotificationTest from './commands/salaryNotificationTest.js';
 import * as salaryDebts from './commands/salaryDebts.js';
 import * as salaryDebtDetail from './commands/salaryDebtDetail.js';
 import * as salaryPayDebt from './commands/salaryPayDebt.js';
@@ -27,6 +28,7 @@ export {
   salaryPayoutNow,
   salaryNotificationSchedule,
   salaryNotificationRoles,
+  salaryNotificationTest,
   salaryDebts,
   salaryDebtDetail,
   salaryPayDebt,

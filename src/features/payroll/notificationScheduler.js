@@ -104,39 +104,51 @@ async function sendNotification(client, previewData, notificationRoleIds) {
     
     embed.setFooter({ text: 'He thong tu dong bao cao' });
     embed.setTimestamp();
-    
-    // Lay danh sach members can thong bao (dedupe)
-    const uniqueNotifiedUsers = new Set();
-    
+
+    // Gui thong bao trong channel (khong tag)
+    await targetChannel.send({
+      embeds: [embed]
+    });
+
+    console.log(`[Payroll Notification] Sent notification to #${targetChannel.name}`);
+
+    // Gui DM rieng cho tung admin co role
+    let dmCount = 0;
+    let dmFailed = 0;
+
     if (notificationRoleIds && notificationRoleIds.length > 0) {
-      const members = await guild.members.fetch();
-      
+      const members = guild.members.cache;
+      const notifiedUsers = new Set();
+
       for (const member of members.values()) {
         if (member.user.bot) continue;
-        
-        const hasNotificationRole = member.roles.cache.some(role => 
+
+        const hasNotificationRole = member.roles.cache.some(role =>
           notificationRoleIds.includes(role.id)
         );
-        
+
         if (hasNotificationRole) {
-          uniqueNotifiedUsers.add(member.user.id);
+          notifiedUsers.add(member);
+        }
+      }
+
+      // Gui DM cho tung user
+      for (const member of notifiedUsers) {
+        try {
+          await member.send({
+            content: '📢 **Thông báo trả lương sắp tới**',
+            embeds: [embed]
+          });
+          dmCount++;
+          console.log(`[Payroll Notification] Sent DM to ${member.user.tag}`);
+        } catch (error) {
+          dmFailed++;
+          console.warn(`[WARN] Cannot send DM to ${member.user.tag}: ${error.message}`);
         }
       }
     }
-    
-    // Gui notification
-    let content = '';
-    if (uniqueNotifiedUsers.size > 0) {
-      const mentions = Array.from(uniqueNotifiedUsers).map(userId => `<@${userId}>`).join(' ');
-      content = mentions;
-    }
-    
-    await targetChannel.send({ 
-      content: content || undefined,
-      embeds: [embed] 
-    });
-    
-    console.log(`[Payroll Notification] Sent notification to #${targetChannel.name}, ${uniqueNotifiedUsers.size} user(s) notified`);
+
+    console.log(`[Payroll Notification] DM summary: ${dmCount} sent, ${dmFailed} failed`);
     
   } catch (error) {
     console.error('[ERROR] Failed to send notification:', error);
@@ -172,20 +184,24 @@ export async function initNotificationScheduler(client) {
       console.warn('[WARN] No notification roles configured. Notifications will be sent without mentions.');
     }
     
-    // Tao cron job
+    // Tao cron job với timezone support
     currentNotificationJob = cron.schedule(cronExpression, async () => {
-      console.log('[SCHEDULER] Starting payroll notification...');
-      
+      const now = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+      console.log(`[SCHEDULER] ⏰ Starting payroll notification at ${now}...`);
+
       try {
         const previewData = await generatePayrollPreview(client);
         await sendNotification(client, previewData, currentNotificationConfig.notificationRoles || []);
-        console.log('[SCHEDULER] Payroll notification completed');
+        console.log('[SCHEDULER] ✅ Payroll notification completed successfully');
       } catch (error) {
-        console.error('[ERROR] Scheduled notification failed:', error);
+        console.error('[ERROR] ❌ Scheduled notification failed:', error);
       }
+    }, {
+      scheduled: true,
+      timezone: 'Asia/Ho_Chi_Minh'
     });
-    
-    console.log('[INFO] Payroll notification scheduler initialized');
+
+    console.log('[INFO] ✓ Payroll notification scheduler initialized successfully');
     
   } catch (error) {
     console.error('[ERROR] Failed to initialize notification scheduler:', error);

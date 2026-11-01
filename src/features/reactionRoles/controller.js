@@ -15,6 +15,7 @@ import {
   setReactionRoleClaimsPreExisting,
   tryAddReactionRoleClaim
 } from '../../database/reactionRoles.js';
+import { chargeCoins } from '../payroll/services/apiClient.js';
 
 const snowflakePattern = /^\d{17,20}$/;
 const locks = new Map();
@@ -252,6 +253,58 @@ async function processReactionAdd(config, reaction, member) {
   }
 
   try {
+    // Trừ coins nếu role có giá
+    if (currentConfig.price && currentConfig.price > 0) {
+      console.log(`[Reaction Role] Charging ${currentConfig.price} coins from ${member.user.tag}`);
+
+      try {
+        const chargeResult = await chargeCoins(
+          member.id,
+          currentConfig.price,
+          `Nhận role ${config.role.name}`
+        );
+
+        if (chargeResult.insufficientBalance) {
+          // Không đủ coins - gỡ claim và reaction
+          await removeReactionRoleClaim(currentConfig, member.id);
+          await reaction.users.remove(member.id);
+
+          try {
+            await member.send({
+              content: `❌ **Không đủ coins**\n\n` +
+                `Bạn cần **${currentConfig.price}** coins để nhận role **${config.role.name}**, ` +
+                `nhưng số dư không đủ.\n\n` +
+                `Dùng \`/coins-balance\` để kiểm tra số dư.`
+            });
+          } catch (dmError) {
+            console.log(`[Reaction Role] Cannot DM ${member.user.tag} about insufficient balance`);
+          }
+
+          console.log(`[Reaction Role] ${member.user.tag} has insufficient balance (${currentConfig.price} coins required)`);
+          return true; // Rejected
+        }
+
+        console.log(`[Reaction Role] Successfully charged ${currentConfig.price} coins from ${member.user.tag}`);
+      } catch (chargeError) {
+        // Lỗi API - gỡ claim và reaction
+        console.error(`[ERROR] Failed to charge coins from ${member.user.tag}:`, chargeError);
+        await removeReactionRoleClaim(currentConfig, member.id);
+        await reaction.users.remove(member.id);
+
+        try {
+          await member.send({
+            content: `❌ **Lỗi thanh toán**\n\n` +
+              `Không thể trừ coins để nhận role **${config.role.name}**.\n` +
+              `Vui lòng thử lại sau hoặc liên hệ admin.`
+          });
+        } catch (dmError) {
+          console.log(`[Reaction Role] Cannot DM ${member.user.tag} about charge error`);
+        }
+
+        return true; // Rejected
+      }
+    }
+
     await setReactionRoleClaimsPreExisting(
       config.guildId,
       config.roleId,
@@ -260,12 +313,16 @@ async function processReactionAdd(config, reaction, member) {
     );
     const newlyGranted = await ensureMemberRole(member, config.role);
     if (newlyGranted) {
+      const priceNote = currentConfig.price > 0
+        ? `\n\n💰 **Đã trả:** ${currentConfig.price} coins`
+        : '';
+
       await sendRoleNotification(
         member,
         config.role,
         member.guild,
         'granted',
-        'Bạn đã đăng ký nhận role bằng reaction.',
+        `Bạn đã đăng ký nhận role bằng reaction.${priceNote}`,
         expireAt,
         currentConfig.durationDays,
         currentConfig.every
@@ -314,7 +371,7 @@ export async function handleReactionRoleAdd(reaction, user) {
 export async function handleReactionRoleRemove(reaction, user) {
   try {
     console.log(`[DEBUG] handleReactionRoleRemove called for user ${user.tag} on message ${reaction.message.id}`);
-    
+
     const context = await fetchReactionContext(reaction, user);
     if (!context) {
       console.log(`[DEBUG] No context found - bot user or no guild`);
@@ -323,13 +380,13 @@ export async function handleReactionRoleRemove(reaction, user) {
 
     const emojiKey = getReactionEmojiKey(reaction);
     console.log(`[DEBUG] Emoji key: ${emojiKey}`);
-    
+
     const configs = await getReactionRoleConfigsForMessage(
       context.guild.id,
       context.message.id
     );
     console.log(`[DEBUG] Found ${configs.length} configs for this message`);
-    
+
     const matchingConfigs = configs.filter(config => (
       matchesReactionEmoji(config, emojiKey)
       || config.claimants?.some(claim => (
@@ -337,29 +394,18 @@ export async function handleReactionRoleRemove(reaction, user) {
       ))
     ));
     console.log(`[DEBUG] ${matchingConfigs.length} matching configs`);
-    
+
     if (!matchingConfigs.length) {
       console.log(`[DEBUG] No matching configs - exiting`);
       return;
     }
 
-    // Không thể ngăn user unreact (Discord API limitation)
-    // Giải pháp: Giữ role cho user, chỉ gỡ khi hết hạn
-    try {
-      // Gửi DM cảnh báo user
-      const member = await context.guild.members.fetch(user.id);
-      await member.send({
-        content: `⚠️ **Cảnh báo:** Bạn đã gỡ reaction trong **${context.guild.name}**.\n\n` +
-          `Role của bạn vẫn được giữ nguyên và chỉ được gỡ tự động khi hết hạn.\n` +
-          `Vui lòng không spam react/unreact.`
-      }).catch(() => {
-        console.log(`[Reaction Role] Cannot DM user ${user.tag} about unreact`);
-      });
-      
-      console.log(`[Reaction Role] User ${user.tag} removed reaction - role kept until expiry`);
-    } catch (error) {
-      console.error(`[ERROR] Failed to handle unreact:`, error);
-    }
+    // BỎ QUA UNREACT - không làm gì cả
+    // Role chỉ bị gỡ khi:
+    // 1. Hết thời hạn (durationDays hoặc every schedule)
+    // 2. Bot/admin xóa config
+    console.log(`[Reaction Role] User ${user.tag} unreacted - ignoring (role kept until expiry or manual removal)`);
+
   } catch (error) {
     console.error('[ERROR] Failed to process reaction role remove:', error);
   }
@@ -372,7 +418,8 @@ export async function setConfig({
   limit,
   emoji,
   durationDays,
-  every
+  every,
+  price = 0
 }) {
   if (!snowflakePattern.test(messageId)) {
     throw new Error('Message ID không hợp lệ.');
@@ -432,16 +479,20 @@ export async function setConfig({
   }
 
   const { emojiKey, emojiLabel } = normalizeEmoji(emoji);
-  
-  // Xóa tất cả reactions hiện tại trên message
-  await message.reactions.removeAll().catch(error => {
+
+  // LUÔN xóa tất cả reactions khi setup/update config
+  // Người dùng phải react lại sau khi config mới
+  try {
+    await message.reactions.removeAll();
+    console.log(`[Reaction Role] Removed all reactions on message ${messageId}`);
+  } catch (error) {
     console.warn('[WARN] Failed to remove existing reactions:', error);
-  });
-  
+  }
+
   // Bot react emoji để tạo button
   await message.react(emojiLabel);
   console.log(`[Reaction Role] Bot reacted ${emojiLabel} on message ${messageId}`);
-  
+
   await saveReactionRoleConfig({
     guildId: guild.id,
     channelId: channel.id,
@@ -451,7 +502,8 @@ export async function setConfig({
     emojiLabel,
     limit,
     durationDays,
-    every: everyTime ? `${String(everyTime.hours).padStart(2, '0')}:${String(everyTime.minutes).padStart(2, '0')}` : null
+    every: everyTime ? `${String(everyTime.hours).padStart(2, '0')}:${String(everyTime.minutes).padStart(2, '0')}` : null,
+    price: price || 0
   });
 
   let durationText = 'không hết hạn';
@@ -460,27 +512,28 @@ export async function setConfig({
     const now = new Date();
     const targetTime = new Date(now);
     targetTime.setHours(everyTime.hours, everyTime.minutes, 0, 0);
-    
+
     // Nếu giờ target đã qua hôm nay, tính sang ngày mai
     if (targetTime <= now) {
       targetTime.setDate(targetTime.getDate() + 1);
     }
-    
+
     const diffMs = targetTime - now;
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    
+
     let countdown = '';
     if (diffHours > 0) countdown = `còn ${diffHours} giờ ${diffMinutes} phút`;
     else countdown = `còn ${diffMinutes} phút`;
-    
+
     durationText = `gỡ mỗi ngày lúc ${String(everyTime.hours).padStart(2, '0')}:${String(everyTime.minutes).padStart(2, '0')} (${countdown})`;
   }
   console.log('[DEBUG] durationText result:', durationText, { durationDays, everyTime });
 
+  const priceText = price > 0 ? `, giá **${price}** coins` : '';
   return `Đã lưu cấu hình: ${role} trên tin nhắn \`${message.id}\`, ` +
     `emoji \`${emojiLabel}\`, giới hạn **${limit}** thành viên, ` +
-    `thời hạn **${durationText}**.`;
+    `thời hạn **${durationText}**${priceText}.`;
 }
 
 export async function deleteConfig(guild, messageId, roleId) {
@@ -523,6 +576,27 @@ export async function deleteConfig(guild, messageId, roleId) {
       } catch (error) {
         if (error.code !== 10007) throw error;
       }
+    }
+
+    // Xóa toàn bộ reaction tương ứng với config này trên message
+    try {
+      const channel = guild.channels.cache.get(config.channelId)
+        || await guild.channels.fetch(config.channelId).catch(() => null);
+      if (channel) {
+        const message = await channel.messages.fetch(messageId).catch(() => null);
+        if (message) {
+          const reactionToRemove = message.reactions.cache.find(r => {
+            const key = r.emoji.id || r.emoji.name;
+            return key === config.emojiKey;
+          });
+          if (reactionToRemove) {
+            await reactionToRemove.remove();
+            console.info(`[Reaction Role] Removed all reactions for emoji ${config.emojiKey} on message ${messageId}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`[WARN] Failed to remove reactions on message ${messageId}:`, error);
     }
 
     await deleteReactionRoleConfig(guild.id, messageId, roleId);

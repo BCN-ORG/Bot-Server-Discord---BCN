@@ -76,6 +76,109 @@ async function retryWithBackoff(fn, maxAttempts = 3) {
 }
 
 /**
+ * Chuyen coins tu user cho bot (payment) - dung API topup
+ * User tu nguyen tra tien de nhan role
+ * @param {string} userId - Discord user ID
+ * @param {number} amount - So coins can chuyen
+ * @param {string} description - Mo ta giao dich
+ * @returns {Promise<Object>} Response data
+ */
+export async function chargeCoins(userId, amount, description) {
+  const config = getConfig();
+
+  if (typeof userId !== 'string' || !/^\d+$/.test(userId)) {
+    throw new TypeError('[Payroll API] userId must be a Discord ID string containing digits only');
+  }
+
+  if (typeof amount !== 'number' || amount <= 0) {
+    throw new TypeError('[Payroll API] amount must be a positive number');
+  }
+
+  // Tao reference duy nhat cho moi giao dich
+  const timestamp = Date.now();
+  const reference = `reaction-role-${timestamp}-${userId}`;
+
+  return retryWithBackoff(async () => {
+    try {
+      const requestBody = {
+        reference,
+        userId,
+        amount,
+        reason: description || 'Nhận role qua reaction'
+      };
+
+      console.log('[Payroll API] Charging coins via /topup:', JSON.stringify(requestBody));
+
+      const response = await fetch(`${config.baseUrl}/topup`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(requestBody)
+      });
+
+      const data = await response.json();
+      console.log(
+        `[Payroll API] Topup response (HTTP ${response.status}):`,
+        JSON.stringify(data)
+      );
+
+      // 409 va 503 can retry
+      if (response.status === 409 || response.status === 503) {
+        return {
+          shouldRetry: true,
+          status: response.status,
+          data
+        };
+      }
+
+      // 200 - thanh cong hoac duplicate
+      if (response.status === 200) {
+        // Kiem tra status trong body
+        if (data.status === 'FAILED') {
+          // User khong du coins
+          return {
+            shouldRetry: false,
+            status: response.status,
+            data,
+            httpStatus: 200,
+            insufficientBalance: true
+          };
+        }
+
+        return {
+          shouldRetry: false,
+          status: response.status,
+          data,
+          httpStatus: 200,
+          duplicate: data.duplicate || false
+        };
+      }
+
+      // 403/404 - user khong co hoac khong phai member
+      if (response.status === 403 || response.status === 404) {
+        return {
+          shouldRetry: false,
+          status: response.status,
+          data,
+          httpStatus: response.status,
+          insufficientBalance: response.status === 403
+        };
+      }
+
+      // Cac loi khac
+      return {
+        shouldRetry: false,
+        status: response.status,
+        data,
+        httpStatus: response.status
+      };
+    } catch (error) {
+      console.error('[Payroll API] Charge error:', error);
+      throw error;
+    }
+  });
+}
+
+/**
  * Tra luong cho mot user
  * @param {string} userId 
  * @param {string} roleId 

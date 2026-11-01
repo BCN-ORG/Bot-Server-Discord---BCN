@@ -1,7 +1,11 @@
 import {
   ChannelType,
   PermissionFlagsBits,
-  SlashCommandBuilder
+  SlashCommandBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  ActionRowBuilder
 } from 'discord.js';
 import {
   deleteConfig,
@@ -16,46 +20,24 @@ export const data = new SlashCommandBuilder()
   .addSubcommand(subcommand =>
     subcommand
       .setName('set')
-      .setDescription('Tạo hoặc cập nhật cấu hình reaction role')
+      .setDescription('Cấu hình reaction role')
       .addStringOption(option =>
         option
           .setName('message_id')
-          .setDescription('ID tin nhắn cần cấu hình')
+          .setDescription('ID tin nhắn (copy link → lấy số cuối)')
           .setRequired(true)
       )
       .addRoleOption(option =>
         option
           .setName('role')
-          .setDescription('Role cấp khi thành viên react')
-          .setRequired(true)
-      )
-      .addIntegerOption(option =>
-        option
-          .setName('limit')
-          .setDescription('Số thành viên tối đa nhận role')
-          .setMinValue(1)
+          .setDescription('Role sẽ được cấp khi react')
           .setRequired(true)
       )
       .addStringOption(option =>
         option
           .setName('emoji')
-          .setDescription('Emoji cần react để nhận role')
-          .setMaxLength(100)
+          .setDescription('Emoji (ví dụ: ❤️ hoặc :emoji_name:)')
           .setRequired(true)
-      )
-      .addIntegerOption(option =>
-        option
-          .setName('duration_days')
-          .setDescription('Thời hạn role tính theo ngày; bỏ trống để không hết hạn')
-          .setMinValue(1)
-          .setMaxValue(36500)
-          .setRequired(false)
-      )
-      .addStringOption(option =>
-        option
-          .setName('every')
-          .setDescription('Gỡ role lúc mấy giờ mỗi ngày (HH:mm, ví dụ: 08:20); conflict với duration_days')
-          .setRequired(false)
       )
   )
   .addSubcommand(subcommand =>
@@ -88,29 +70,45 @@ export async function execute(interaction) {
     }
 
     const subcommand = interaction.options.getSubcommand();
+
     if (subcommand === 'set') {
-      // Defer reply ngay để tránh timeout khi tìm message
-      await interaction.deferReply({ flags: 64 }); // Ephemeral
-      
       const messageId = interaction.options.getString('message_id', true).trim();
       const role = interaction.options.getRole('role', true);
-      const limit = interaction.options.getInteger('limit', true);
-      const emoji = interaction.options.getString('emoji', true); // Required now
-      const durationDays = interaction.options.getInteger('duration_days');
-      const every = interaction.options.getString('every');
+      const emoji = interaction.options.getString('emoji', true).trim();
 
-      const result = await setConfig({
-        guild: interaction.guild,
-        messageId,
-        role,
-        limit,
-        emoji,
-        durationDays,
-        every
-      });
-      await interaction.editReply({ 
-        content: result
-      });
+      // Tạo modal cho các options còn lại
+      const modal = new ModalBuilder()
+        .setCustomId(`reaction_role_modal:${messageId}:${role.id}:${encodeURIComponent(emoji)}`)
+        .setTitle(`Setup ${role.name}`);
+
+      const limitInput = new TextInputBuilder()
+        .setCustomId('limit')
+        .setLabel('Số người tối đa')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('10')
+        .setRequired(true);
+
+      const durationInput = new TextInputBuilder()
+        .setCustomId('duration_or_every')
+        .setLabel('Thời hạn (30 ngày hoặc 08:00)')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('30 hoặc 08:00 (để trống = vĩnh viễn)')
+        .setRequired(false);
+
+      const priceInput = new TextInputBuilder()
+        .setCustomId('price')
+        .setLabel('Giá (coins)')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('0 = miễn phí')
+        .setRequired(false);
+
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(limitInput),
+        new ActionRowBuilder().addComponents(durationInput),
+        new ActionRowBuilder().addComponents(priceInput)
+      );
+
+      await interaction.showModal(modal);
       return;
     }
 
@@ -136,9 +134,10 @@ export async function execute(interaction) {
         let duration = 'không hết hạn';
         if (config.durationDays) duration = `${config.durationDays} ngày`;
         else if (config.every) duration = `mỗi ngày lúc ${config.every}`;
+        const priceText = config.price > 0 ? ` | giá: **${config.price}** coins` : '';
         return `• Tin nhắn \`${config.messageId}\` → <@&${config.roleId}> | ` +
           `emoji: \`${config.emojiLabel}\` | limit: **${config.limit}** | ` +
-          `thời hạn: **${duration}** | ` +
+          `thời hạn: **${duration}**${priceText} | ` +
           `đã nhận: **${config.claimants?.length || 0}**`;
       }).join('\n')
       : 'Server chưa có cấu hình reaction role.';

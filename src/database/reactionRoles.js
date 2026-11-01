@@ -38,6 +38,7 @@ export async function saveReactionRoleConfig(config) {
         limit: config.limit,
         durationDays: config.durationDays ?? null,
         every: config.every ?? null,
+        price: config.price ?? 0,
         updatedAt: now
       },
       $setOnInsert: {
