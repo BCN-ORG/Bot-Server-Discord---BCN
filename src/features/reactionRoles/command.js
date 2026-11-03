@@ -61,6 +61,29 @@ export const data = new SlashCommandBuilder()
     subcommand
       .setName('list')
       .setDescription('Xem cấu hình reaction role')
+  )
+  .addSubcommand(subcommand =>
+    subcommand
+      .setName('update-time')
+      .setDescription('Chỉnh thời gian thu hồi cho config cụ thể')
+      .addStringOption(option =>
+        option
+          .setName('message_id')
+          .setDescription('ID tin nhắn')
+          .setRequired(true)
+      )
+      .addRoleOption(option =>
+        option
+          .setName('role')
+          .setDescription('Role cần chỉnh')
+          .setRequired(true)
+      )
+      .addStringOption(option =>
+        option
+          .setName('new_time')
+          .setDescription('Thời gian mới (HH:MM, ví dụ: 08:00, hoặc "off" để tắt)')
+          .setRequired(true)
+      )
   );
 
 export async function execute(interaction) {
@@ -124,6 +147,35 @@ export async function execute(interaction) {
           ? `Đã xóa cấu hình role ${role} khỏi tin nhắn \`${messageId}\`.`
           : 'Không tìm thấy cấu hình tương ứng.'
       });
+      return;
+    }
+
+    if (subcommand === 'update-time') {
+      await interaction.deferReply({ flags: 64 });
+      
+      const messageId = interaction.options.getString('message_id', true).trim();
+      const role = interaction.options.getRole('role', true);
+      const newTime = interaction.options.getString('new_time', true).trim().toLowerCase();
+      
+      // Import hàm update
+      const { updateScheduledTime } = await import('./controller.js');
+      
+      try {
+        const result = await updateScheduledTime(
+          interaction.guild.id, 
+          messageId, 
+          role.id, 
+          newTime === 'off' ? null : newTime
+        );
+        
+        await interaction.editReply({
+          content: result
+        });
+      } catch (error) {
+        await interaction.editReply({
+          content: `❌ Lỗi: ${error.message}`
+        });
+      }
       return;
     }
 

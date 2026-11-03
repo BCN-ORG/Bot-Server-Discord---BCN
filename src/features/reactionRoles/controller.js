@@ -608,6 +608,40 @@ export async function listConfigs(guildId) {
   return getReactionRoleConfigsForGuild(guildId);
 }
 
+export async function updateScheduledTime(guildId, messageId, roleId, newTime) {
+  // Validate time format
+  if (newTime !== null) {
+    parseEveryTime(newTime); // Will throw if invalid
+  }
+  
+  // Get current config
+  const config = await getReactionRoleConfig(guildId, messageId, roleId);
+  if (!config) {
+    throw new Error('Không tìm thấy config này.');
+  }
+  
+  // Update database
+  const { getDatabase } = await import('../../database/mongodb.js');
+  await getDatabase()
+    .collection('reaction_role_configs')
+    .updateOne(
+      { guildId, messageId, roleId },
+      { 
+        $set: { 
+          every: newTime,
+          updatedAt: new Date()
+        } 
+      }
+    );
+  
+  const role = await import('discord.js').then(m => m);
+  const timeDisplay = newTime ? `**${newTime}**` : '**TẮT** (không tự động thu hồi)';
+  
+  return `✅ Đã cập nhật thời gian thu hồi cho <@&${roleId}> (tin nhắn \`${messageId}\`):\n` +
+         `⏰ Thời gian mới: ${timeDisplay}\n` +
+         `📊 Số người đang có role: **${config.claimants?.length || 0}**`;
+}
+
 export async function handleReactionRoleMemberRemove(member) {
   try {
     await removeReactionRoleClaimsForMember(member.guild.id, member.id);
@@ -721,9 +755,19 @@ export async function processScheduledReactionRoleRevoke(client) {
   const currentMinutes = now.getMinutes();
   const currentTime = `${String(currentHours).padStart(2, '0')}:${String(currentMinutes).padStart(2, '0')}`;
 
+  console.log(`[Reaction Role Scheduler] Checking scheduled revoke at ${currentTime}...`);
+  
   const scheduledConfigs = await getScheduledReactionRoleConfigs(currentTime);
+  
+  if (scheduledConfigs.length === 0) {
+    console.log(`[Reaction Role Scheduler] No configs scheduled for ${currentTime}`);
+    return;
+  }
+
+  console.log(`[Reaction Role Scheduler] Found ${scheduledConfigs.length} config(s) scheduled for ${currentTime}`);
 
   for (const config of scheduledConfigs) {
+    console.log(`[Reaction Role Scheduler] Processing config: messageId=${config.messageId}, roleId=${config.roleId}, claimants=${config.claimants?.length || 0}`);
     for (const claimant of config.claimants || []) {
       await withRoleLock(roleLockKey(config.guildId, config.roleId), async () => {
         const guild = client.guilds.cache.get(config.guildId);
