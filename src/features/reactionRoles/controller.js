@@ -510,15 +510,30 @@ export async function setConfig({
   if (durationDays) durationText = `${durationDays} ngày`;
   else if (everyTime) {
     const now = new Date();
-    const targetTime = new Date(now);
-    targetTime.setHours(everyTime.hours, everyTime.minutes, 0, 0);
+    const vietnamNowParts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23'
+    }).formatToParts(now);
+    const getPart = type => vietnamNowParts.find(part => part.type === type)?.value;
+    const vietnamNow = new Date(
+      `${getPart('year')}-${getPart('month')}-${getPart('day')}T${getPart('hour')}:${getPart('minute')}:${getPart('second')}+07:00`
+    );
+    let targetTime = new Date(
+      `${getPart('year')}-${getPart('month')}-${getPart('day')}T${String(everyTime.hours).padStart(2, '0')}:${String(everyTime.minutes).padStart(2, '0')}:00+07:00`
+    );
 
-    // Nếu giờ target đã qua hôm nay, tính sang ngày mai
-    if (targetTime <= now) {
-      targetTime.setDate(targetTime.getDate() + 1);
+    // Nếu giờ target đã qua hôm nay, tính sang ngày mai.
+    if (targetTime <= vietnamNow) {
+      targetTime = new Date(targetTime.getTime() + 24 * 60 * 60 * 1000);
     }
 
-    const diffMs = targetTime - now;
+    const diffMs = targetTime - vietnamNow;
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
