@@ -751,9 +751,15 @@ export async function processExpiredReactionRoleClaims(client) {
 
 export async function processScheduledReactionRoleRevoke(client) {
   const now = new Date();
-  const currentHours = now.getHours();
-  const currentMinutes = now.getMinutes();
-  const currentTime = `${String(currentHours).padStart(2, '0')}:${String(currentMinutes).padStart(2, '0')}`;
+  const timeParts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(now);
+  const currentHours = timeParts.find(part => part.type === 'hour')?.value;
+  const currentMinutes = timeParts.find(part => part.type === 'minute')?.value;
+  const currentTime = `${currentHours}:${currentMinutes}`;
 
   console.log(`[Reaction Role Scheduler] Checking scheduled revoke at ${currentTime}...`);
   
@@ -768,7 +774,11 @@ export async function processScheduledReactionRoleRevoke(client) {
 
   for (const config of scheduledConfigs) {
     console.log(`[Reaction Role Scheduler] Processing config: messageId=${config.messageId}, roleId=${config.roleId}, claimants=${config.claimants?.length || 0}`);
-    for (const claimant of config.claimants || []) {
+    // Take a snapshot because each successful revoke removes the claimant from MongoDB.
+    // The schedule itself remains on the config, so it will be selected again tomorrow
+    // after members react again.
+    const claimants = [...(config.claimants || [])];
+    for (const claimant of claimants) {
       await withRoleLock(roleLockKey(config.guildId, config.roleId), async () => {
         const guild = client.guilds.cache.get(config.guildId);
         if (!guild) {

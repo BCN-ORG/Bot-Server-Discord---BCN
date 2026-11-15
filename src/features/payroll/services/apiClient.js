@@ -130,11 +130,9 @@ export async function chargeCoins(userId, amount, description) {
         };
       }
 
-      // 200 - thanh cong hoac duplicate
+      // 200 - chỉ thành công khi API xác nhận SUCCESS.
       if (response.status === 200) {
-        // Kiem tra status trong body
         if (data.status === 'FAILED') {
-          // User khong du coins
           return {
             shouldRetry: false,
             status: response.status,
@@ -142,6 +140,12 @@ export async function chargeCoins(userId, amount, description) {
             httpStatus: 200,
             insufficientBalance: true
           };
+        }
+
+        if (data.status !== 'SUCCESS') {
+          throw new Error(
+            `[Payroll API] Topup was not successful: ${data.status || 'missing status'}`
+          );
         }
 
         return {

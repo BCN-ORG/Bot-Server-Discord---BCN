@@ -53,6 +53,9 @@ export async function initPayrollScheduler(client) {
       } catch (error) {
         console.error('[ERROR] Scheduled payroll failed:', error);
       }
+    }, {
+      scheduled: true,
+      timezone: currentConfig.timezone || 'Asia/Ho_Chi_Minh'
     });
 
     console.log('[INFO] Payroll scheduler initialized');
@@ -95,6 +98,9 @@ export async function updateSchedule(dayOfWeek, hour, minute, client) {
       } catch (error) {
         console.error('[ERROR] Scheduled payroll failed:', error);
       }
+    }, {
+      scheduled: true,
+      timezone: currentConfig.timezone || 'Asia/Ho_Chi_Minh'
     });
     
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
