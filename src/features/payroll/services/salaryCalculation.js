@@ -17,12 +17,13 @@ export function calculateMemberSalary(
   for (const [roleId, role] of member.roles.cache) {
     if (role.id === member.guild.id || role.managed) continue;
 
-    const coefficient = hasCoefficientEligibility
+    const fixedAmount = fixedSalaryMap.get(roleId) ?? 0;
+    // Cách A: một role chỉ tạo một khoản trả. Nếu role có lương cố định,
+    // role đó không đồng thời nhận khoản hệ số.
+    const coefficient = hasCoefficientEligibility && fixedAmount <= 0
       ? coefficientMap.get(roleId) ?? 1
       : 0;
     coefficientTotal += coefficient;
-    
-    const fixedAmount = fixedSalaryMap.get(roleId) ?? 0;
     
     const roleDetail = {
       roleId,
@@ -37,9 +38,7 @@ export function calculateMemberSalary(
     
     roleDetails.push({
       ...roleDetail,
-      payType: fixedAmount > 0
-        ? (hasCoefficientEligibility ? 'coefficient+fixed' : 'fixed')
-        : 'coefficient'
+      payType: fixedAmount > 0 ? 'fixed' : 'coefficient'
     });
 
     if (fixedAmount > 0) {
@@ -53,47 +52,27 @@ export function calculateMemberSalary(
   let rawTotalAmount = 0;
   let isCapped = false;
 
-  // 1. Payment cho he so (neu co coefficient eligibility)
-  if (hasCoefficientEligibility && coefficientTotal > 0 && coefficientRoles.length > 0) {
-    const coefficientAmount = Math.min(coefficientTotal, 100);
-    if (coefficientTotal > 100) {
-      console.warn(`[WARN] Payment capped: coefficient from ${coefficientTotal} to 100 coins`);
-      isCapped = true;
-    }
-    
-    // Chon role dau tien trong coefficientRoles lam roleId de tra
-    const firstCoefficientRole = coefficientRoles[0];
-    
-    payments.push({
-      type: 'coefficient',
-      roleId: firstCoefficientRole.roleId,
-      roleName: firstCoefficientRole.roleName,
-      amount: coefficientAmount,
-      description: '' // Se duoc set trong payrollService
-    });
-    
-    totalAmount += coefficientAmount;
-    rawTotalAmount += coefficientTotal;
-  }
+  // Tạo payment theo đúng thứ tự role của member: mỗi role chỉ một payment.
+  for (const roleDetail of roleDetails) {
+    const fixedAmount = roleDetail.fixedAmount ?? 0;
+    const amount = fixedAmount > 0 ? fixedAmount : roleDetail.coefficient;
+    if (amount <= 0) continue;
 
-  // 2. Payments cho tung fixed salary role
-  for (const fixedRole of fixedRoles) {
-    const fixedAmount = Math.min(fixedRole.amount, 100);
-    if (fixedRole.amount > 100) {
-      console.warn(`[WARN] Payment capped: fixed for ${fixedRole.roleName} from ${fixedRole.amount} to 100 coins`);
+    const cappedAmount = Math.min(amount, 100);
+    if (amount > 100) {
+      console.warn(`[WARN] Payment capped for ${roleDetail.roleName} from ${amount} to 100 coins`);
       isCapped = true;
     }
-    
+
     payments.push({
-      type: 'fixed',
-      roleId: fixedRole.roleId,
-      roleName: fixedRole.roleName,
-      amount: fixedAmount,
-      description: '' // Se duoc set trong payrollService
+      type: fixedAmount > 0 ? 'fixed' : 'coefficient',
+      roleId: roleDetail.roleId,
+      roleName: roleDetail.roleName,
+      amount: cappedAmount,
+      description: ''
     });
-    
-    totalAmount += fixedAmount;
-    rawTotalAmount += fixedRole.amount;
+    totalAmount += cappedAmount;
+    rawTotalAmount += amount;
   }
 
   return {
