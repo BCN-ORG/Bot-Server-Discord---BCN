@@ -286,8 +286,11 @@ export function setupInteractionHandlers(client) {
         await fineFeature.handleFineModalSubmit(interaction, client);
       }
     } catch (error) {
-      if (error.code === 40060) {
-        console.warn('[WARN] Interaction đã được xác nhận trước đó; có thể đang chạy nhiều tiến trình bot.');
+      if (error.code === 40060 || error.code === 10062) {
+        console.warn(
+          `[WARN] Discord không còn nhận phản hồi cho interaction (mã ${error.code}); ` +
+          'hãy kiểm tra tiến trình bot trùng hoặc phản hồi quá hạn.'
+        );
         return;
       }
 
