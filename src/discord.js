@@ -286,6 +286,11 @@ export function setupInteractionHandlers(client) {
         await fineFeature.handleFineModalSubmit(interaction, client);
       }
     } catch (error) {
+      if (error.code === 40060) {
+        console.warn('[WARN] Interaction đã được xác nhận trước đó; có thể đang chạy nhiều tiến trình bot.');
+        return;
+      }
+
       console.error('[ERROR] Loi khi xu ly interaction:', error);
       
       // Phan hoi loi cho nguoi dung
