@@ -8,6 +8,7 @@ import * as kickManagerFeature from './features/kickManager/index.js';
 import * as coinRandomFeature from './features/coinRandom/index.js';
 import * as fineFeature from './features/fine/index.js';
 import * as coinsFeature from './features/coins/index.js';
+import * as systemMonitoringFeature from './features/system-monitoring/command.js';
 import {
   execute as kickExecute,
   executeRollback as kickRollbackExecute,
@@ -55,7 +56,8 @@ export async function registerCommands(token, clientId, guildId) {
     fineFeature.fineAnnouncementChannels.data.toJSON(),
     fineFeature.fineDelete.data.toJSON(),
     coinsFeature.balance.data.toJSON(),
-    coinsFeature.contribute.data.toJSON()
+    coinsFeature.contribute.data.toJSON(),
+    systemMonitoringFeature.data.toJSON()
   ];
 
   const rest = new REST({ version: '10' }).setToken(token);
@@ -143,6 +145,10 @@ export function setupInteractionHandlers(client) {
 
       if (interaction.isChatInputCommand() && interaction.commandName === 'coins-contribute') {
         await coinsFeature.contribute.execute(interaction);
+      }
+
+      if (interaction.isChatInputCommand() && interaction.commandName === 'battery') {
+        await systemMonitoringFeature.execute(interaction);
       }
 
       if (interaction.isChatInputCommand() && interaction.commandName === 'kick-manager') {

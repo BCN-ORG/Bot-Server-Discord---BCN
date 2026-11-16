@@ -4,6 +4,12 @@ Tính năng theo dõi hệ thống cung cấp thông tin RAM và pin qua
 `GET /api/system`. Tuyến API được đăng ký trong `src/routes/index.js` và xử lý
 tại `src/routes/systemRoutes.js`.
 
+## Lệnh Discord
+
+Lệnh slash `/battery` hiển thị phần trăm pin, trạng thái sạc, nguồn điện, sức
+khỏe và nhiệt độ pin. Lệnh lấy dữ liệu từ API nội bộ `GET /api/system`, nên bot
+cần chạy trên Android/Termux và API phải được khởi động cùng ứng dụng.
+
 ## Nền tảng được hỗ trợ
 
 Tuyến API chỉ lấy thông tin thiết bị khi phát hiện hệ điều hành Android hoặc
