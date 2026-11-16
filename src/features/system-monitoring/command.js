@@ -1,33 +1,5 @@
-import { EmbedBuilder, SlashCommandBuilder } from 'discord.js';
-
-const batteryStatusLabels = {
-  CHARGING: 'Đang sạc',
-  DISCHARGING: 'Đang dùng pin',
-  FULL: 'Đã sạc đầy',
-  NOT_CHARGING: 'Không sạc'
-};
-
-const getBatteryInfo = async () => {
-  const port = process.env.PORT || 3000;
-  const response = await fetch(`http://127.0.0.1:${port}/api/system`, {
-    signal: AbortSignal.timeout(10000)
-  });
-
-  if (response.status === 501) {
-    return { unsupportedPlatform: true };
-  }
-
-  if (!response.ok) {
-    throw new Error(`System API returned HTTP ${response.status}`);
-  }
-
-  const result = await response.json();
-  if (!result.success) {
-    throw new Error(result.error || 'System API request failed');
-  }
-
-  return { battery: result.device?.battery, temperature: result.device?.temperature };
-};
+import { SlashCommandBuilder } from 'discord.js';
+import { createBatteryEmbed, getBatteryInfo } from './batteryService.js';
 
 export const data = new SlashCommandBuilder()
   .setName('battery')
@@ -53,33 +25,7 @@ export async function execute(interaction) {
       return;
     }
 
-    const battery = info.battery;
-    const percentage = Number.isFinite(battery.percentage)
-      ? `${battery.percentage}%`
-      : 'Không xác định';
-    const status = batteryStatusLabels[battery.status] || battery.status || 'Không xác định';
-    const plugged = battery.plugged
-      ? battery.plugged.replaceAll('_', ' ').toLowerCase()
-      : 'Không xác định';
-    const health = battery.health || 'Không xác định';
-    const temperature = info.temperature && info.temperature !== 'Không xác định'
-      ? info.temperature
-      : 'Không xác định';
-
-    const embed = new EmbedBuilder()
-      .setColor(Number.isFinite(battery.percentage) && battery.percentage <= 20 ? '#ff0000' : '#2ecc71')
-      .setTitle('🔋 Tình trạng pin của bot')
-      .addFields(
-        { name: 'Dung lượng', value: percentage, inline: true },
-        { name: 'Trạng thái', value: status, inline: true },
-        { name: 'Nguồn điện', value: plugged, inline: true },
-        { name: 'Sức khỏe pin', value: health, inline: true },
-        { name: 'Nhiệt độ', value: temperature, inline: true }
-      )
-      .setFooter({ text: 'Dữ liệu từ Android/Termux' })
-      .setTimestamp();
-
-    await interaction.editReply({ embeds: [embed] });
+    await interaction.editReply({ embeds: [createBatteryEmbed(info)] });
   } catch (error) {
     console.error('[Battery Command] Không thể lấy thông tin pin:', error);
     await interaction.editReply(

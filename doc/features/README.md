@@ -70,6 +70,7 @@ Android/Termux.
 
 **API**: [`GET /api/system`](../api/internal/SYSTEM_API.md)
 **Lệnh Discord**: `/battery`
+**Cấu hình role nhận DM**: `/battery-alert-role add`, `/battery-alert-role remove`, `/battery-alert-role list`
 
 ### 5. 🎭 Nhận role bằng biểu tượng cảm xúc
 📄 **[REACTION_ROLES_WORKFLOW.md](./reaction-roles/REACTION_ROLES_WORKFLOW.md)**
@@ -167,7 +168,7 @@ src/
 | **Trả lương** | [📄](./payroll/PAYROLL_SYSTEM.md) | `src/features/payroll/index.js` | `/salary-*` |
 | **Kiểm tra tên** | [📄](./name-validation/NAME_VALIDATION_SYSTEM.md) | `src/features/rename/index.js` | `/rename` |
 | **Sinh nhật** | [📄](./birthday/BIRTHDAY_FEATURE.md) | `src/services/birthdayService.js` | `/api/birthdays/*` |
-| **Theo dõi hệ thống** | [📄](./system-monitoring/SYSTEM_MONITORING.md) | `src/features/system-monitoring/command.js` | `/battery`, `GET /api/system` |
+| **Theo dõi hệ thống** | [📄](./system-monitoring/SYSTEM_MONITORING.md) | `src/features/system-monitoring/` | `/battery`, `/battery-alert-role`, `GET /api/system` |
 | **Nhận role bằng biểu tượng cảm xúc** | [📄](./reaction-roles/REACTION_ROLES_WORKFLOW.md) | `src/features/reactionRoles/index.js` | `/reaction-role` |
 | **Role tạm thời** | [📄](./temporary-roles/TEMPORARY_ROLES.md) | `src/features/temporaryRoles/index.js` | `/role` |
 | **Biên bản phạt coins** | [📄](./fine-reports/FINE_REPORTS.md) | `src/features/fineReports/index.js` | `/fine` |

@@ -24,6 +24,7 @@ import apiRoutes from './routes/index.js';
 import { createApiKeyAuth } from './middleware/apiKeyAuth.js';
 import { handleGuildMemberKick } from './features/kickManager/kick.js';
 import { initCoinRandomScheduler } from './features/coinRandom/index.js';
+import { initBatteryAlertScheduler } from './features/system-monitoring/alertScheduler.js';
 
 const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
 
@@ -116,6 +117,9 @@ client.once('ready', async () => {
 
   // Start the coin-random event expiry scheduler.
   await initCoinRandomScheduler(client);
+
+  // Start hourly Termux battery reports.
+  initBatteryAlertScheduler(client);
   
   console.log('[INFO] Bot đang hoạt động!');
 });
