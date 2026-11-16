@@ -10,6 +10,9 @@ import * as fineFeature from './features/fine/index.js';
 import * as coinsFeature from './features/coins/index.js';
 import * as systemMonitoringFeature from './features/system-monitoring/command.js';
 import * as batteryAlertFeature from './features/system-monitoring/alertCommand.js';
+import * as scheduleFeature from './features/schedule/commands/schedule.js';
+import * as scheduleLoginFeature from './features/schedule/commands/login.js';
+import * as scheduleRolesFeature from './features/schedule/commands/roles.js';
 import {
   execute as kickExecute,
   executeRollback as kickRollbackExecute,
@@ -59,7 +62,10 @@ export async function registerCommands(token, clientId, guildId) {
     coinsFeature.balance.data.toJSON(),
     coinsFeature.contribute.data.toJSON(),
     systemMonitoringFeature.data.toJSON(),
-    batteryAlertFeature.data.toJSON()
+    batteryAlertFeature.data.toJSON(),
+    scheduleFeature.data.toJSON(),
+    scheduleLoginFeature.data.toJSON(),
+    scheduleRolesFeature.data.toJSON()
   ];
 
   const rest = new REST({ version: '10' }).setToken(token);
@@ -155,6 +161,18 @@ export function setupInteractionHandlers(client) {
 
       if (interaction.isChatInputCommand() && interaction.commandName === 'battery-alert-role') {
         await batteryAlertFeature.execute(interaction);
+      }
+
+      if (interaction.isChatInputCommand() && interaction.commandName === 'lich-hoc') {
+        await scheduleFeature.execute(interaction);
+      }
+
+      if (interaction.isChatInputCommand() && interaction.commandName === 'lich-hoc-login') {
+        await scheduleLoginFeature.execute(interaction);
+      }
+
+      if (interaction.isChatInputCommand() && interaction.commandName === 'lich-hoc-roles') {
+        await scheduleRolesFeature.execute(interaction);
       }
 
       if (interaction.isChatInputCommand() && interaction.commandName === 'kick-manager') {
@@ -290,6 +308,10 @@ export function setupInteractionHandlers(client) {
       // Handle fine create modal
       if (interaction.isModalSubmit() && interaction.customId.startsWith('fine_create_modal:')) {
         await fineFeature.handleFineModalSubmit(interaction, client);
+      }
+
+      if (interaction.isModalSubmit() && interaction.customId === 'schedule_login_modal') {
+        await scheduleLoginFeature.handleModalSubmit(interaction);
       }
     } catch (error) {
       if (error.code === 40060 || error.code === 10062) {

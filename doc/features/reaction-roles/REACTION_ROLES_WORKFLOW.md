@@ -29,6 +29,7 @@ Tham số:
 | `limit` | Số thành viên tối đa được nhận role qua cấu hình này. Phải là số nguyên dương. |
 | `emoji` | Emoji được chấp nhận; mặc định là `all`. Dùng `all` để chấp nhận mọi emoji. |
 | `duration_days` | Thời hạn role tính theo ngày (1–36.500); bỏ trống để role không tự hết hạn. |
+| `every` | Giờ thu hồi lặp hằng ngày theo múi giờ Việt Nam (`HH:mm`); lần nhận role được thu ở mốc kế tiếp sau thời điểm react. |
 
 Các lệnh quản trị khác:
 
@@ -63,12 +64,15 @@ MongoDB lưu cấu hình trong collection dành cho tính năng này. Mỗi tài
   emojiKey: "all", // hoặc định danh emoji cụ thể
   limit: 10,
   durationDays: 7, // null nếu role không hết hạn
+  every: "00:00", // null nếu không thu hồi theo giờ hằng ngày
   claimants: [
     {
       userId: "user-id",
       emojiKeys: ["emoji-id-or-name"],
       roleWasPreexisting: false,
-      expireAt: Date // null nếu role không hết hạn
+      expireAt: Date, // null nếu role không hết hạn theo số ngày
+      claimedAt: Date, // thời điểm bot nhận sự kiện react
+      nextRevokeAt: Date // lần thu hồi theo lịch kế tiếp
     }
   ],
   createdAt: Date,
@@ -192,6 +196,11 @@ nửa đêm. Nếu cùng role còn lượt nhận hợp lệ từ cấu hình kh
 thành viên đã có role trước khi nhận, bot cũng không tự gỡ role đó. Lỗi thu hồi
 được ghi nhật ký và lượt nhận chưa xử lý được giữ lại để thử lại ở lần kiểm tra
 tiếp theo.
+
+Với `every`, mỗi lượt nhận lưu `claimedAt` và `nextRevokeAt`. Scheduler chỉ thu
+hồi lượt đã đến `nextRevokeAt`, kể cả khi bot lỡ nhịp đúng phút; lượt react sau
+mốc thu hồi sẽ được giữ tới mốc hằng ngày kế tiếp. Cập nhật giờ thu hồi sẽ tính
+lại mốc kế tiếp cho các lượt đang hoạt động.
 
 ## Thông báo riêng
 

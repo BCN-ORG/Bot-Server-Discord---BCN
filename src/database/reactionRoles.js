@@ -12,6 +12,7 @@ async function ensureIndexes() {
     indexPromise = getCollection()
       .createIndex({ guildId: 1, messageId: 1, roleId: 1 }, { unique: true })
       .then(() => getCollection().createIndex({ 'claimants.expireAt': 1 }))
+      .then(() => getCollection().createIndex({ 'claimants.nextRevokeAt': 1 }))
       .catch((error) => {
         indexPromise = null;
         throw error;
@@ -201,11 +202,33 @@ export async function removeReactionRoleClaimsForMember(guildId, userId) {
   );
 }
 
-export async function getScheduledReactionRoleConfigs(currentTime) {
+export async function updateReactionRoleSchedule(guildId, messageId, roleId, every, nextRevokeAt) {
+  const collection = getCollection();
+  const query = { guildId, messageId, roleId };
+  await collection.updateOne(query, {
+    $set: { every, updatedAt: new Date() }
+  });
+
+  const scheduleUpdate = nextRevokeAt
+    ? { $set: { 'claimants.$[].nextRevokeAt': nextRevokeAt } }
+    : { $unset: { 'claimants.$[].nextRevokeAt': '' } };
+  await collection.updateOne(
+    { ...query, 'claimants.0': { $exists: true } },
+    scheduleUpdate
+  );
+}
+
+export async function getScheduledReactionRoleConfigs(now, currentTime) {
   return getCollection()
     .find({
-      every: currentTime,
-      'claimants.0': { $exists: true }
+      'claimants.0': { $exists: true },
+      $or: [
+        { 'claimants.nextRevokeAt': { $lte: now } },
+        {
+          every: currentTime,
+          'claimants.nextRevokeAt': { $exists: false }
+        }
+      ]
     })
     .toArray();
 }

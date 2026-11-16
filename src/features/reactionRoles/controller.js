@@ -13,9 +13,11 @@ import {
   removeReactionRoleClaimsForMember,
   saveReactionRoleConfig,
   setReactionRoleClaimsPreExisting,
-  tryAddReactionRoleClaim
+  tryAddReactionRoleClaim,
+  updateReactionRoleSchedule
 } from '../../database/reactionRoles.js';
 import { chargeCoins } from '../payroll/services/apiClient.js';
+import { getNextScheduledRevokeAt, isScheduledRevokeDue } from './scheduleTime.js';
 
 const snowflakePattern = /^\d{17,20}$/;
 const locks = new Map();
@@ -156,7 +158,7 @@ async function ensureMemberRole(member, role) {
   return false;
 }
 
-async function processReactionAdd(config, reaction, member) {
+async function processReactionAdd(config, reaction, member, reactedAt) {
   const emojiKey = getReactionEmojiKey(reaction);
   const currentConfig = await getReactionRoleConfig(
     config.guildId,
@@ -214,7 +216,11 @@ async function processReactionAdd(config, reaction, member) {
     userId: member.id,
     emojiKeys: [emojiKey],
     roleWasPreexisting,
-    expireAt
+    expireAt,
+    claimedAt: reactedAt,
+    nextRevokeAt: currentConfig.every
+      ? getNextScheduledRevokeAt(currentConfig.every, reactedAt)
+      : null
   });
 
   if (!added) {
@@ -337,6 +343,7 @@ async function processReactionAdd(config, reaction, member) {
 
 export async function handleReactionRoleAdd(reaction, user) {
   try {
+    const reactedAt = new Date();
     const context = await fetchReactionContext(reaction, user);
     if (!context) return;
 
@@ -348,7 +355,6 @@ export async function handleReactionRoleAdd(reaction, user) {
     const matchingConfigs = configs.filter(config => matchesReactionEmoji(config, emojiKey));
 
     if (!matchingConfigs.length) return;
-    const member = await context.guild.members.fetch(user.id);
 
     for (const config of matchingConfigs) {
       const rejected = await withRoleLock(roleLockKey(config.guildId, config.roleId), async () => {
@@ -359,7 +365,8 @@ export async function handleReactionRoleAdd(reaction, user) {
           );
           return false;
         }
-        return processReactionAdd({ ...config, role }, reaction, member);
+        const member = await context.guild.members.fetch({ user: user.id, force: true });
+        return processReactionAdd({ ...config, role }, reaction, member, reactedAt);
       });
       if (rejected) return;
     }
@@ -479,6 +486,9 @@ export async function setConfig({
   }
 
   const { emojiKey, emojiLabel } = normalizeEmoji(emoji);
+  const everyValue = everyTime
+    ? `${String(everyTime.hours).padStart(2, '0')}:${String(everyTime.minutes).padStart(2, '0')}`
+    : null;
 
   // LUÔN xóa tất cả reactions khi setup/update config
   // Người dùng phải react lại sau khi config mới
@@ -493,17 +503,26 @@ export async function setConfig({
   await message.react(emojiLabel);
   console.log(`[Reaction Role] Bot reacted ${emojiLabel} on message ${messageId}`);
 
-  await saveReactionRoleConfig({
-    guildId: guild.id,
-    channelId: channel.id,
-    messageId,
-    roleId: role.id,
-    emojiKey,
-    emojiLabel,
-    limit,
-    durationDays,
-    every: everyTime ? `${String(everyTime.hours).padStart(2, '0')}:${String(everyTime.minutes).padStart(2, '0')}` : null,
-    price: price || 0
+  await withRoleLock(roleLockKey(guild.id, role.id), async () => {
+    await saveReactionRoleConfig({
+      guildId: guild.id,
+      channelId: channel.id,
+      messageId,
+      roleId: role.id,
+      emojiKey,
+      emojiLabel,
+      limit,
+      durationDays,
+      every: everyValue,
+      price: price || 0
+    });
+    await updateReactionRoleSchedule(
+      guild.id,
+      messageId,
+      role.id,
+      everyValue,
+      everyValue ? getNextScheduledRevokeAt(everyValue) : null
+    );
   });
 
   let durationText = 'không hết hạn';
@@ -624,37 +643,33 @@ export async function listConfigs(guildId) {
 }
 
 export async function updateScheduledTime(guildId, messageId, roleId, newTime) {
-  // Validate time format
-  if (newTime !== null) {
-    parseEveryTime(newTime); // Will throw if invalid
-  }
-  
-  // Get current config
-  const config = await getReactionRoleConfig(guildId, messageId, roleId);
-  if (!config) {
-    throw new Error('Không tìm thấy config này.');
-  }
-  
-  // Update database
-  const { getDatabase } = await import('../../database/mongodb.js');
-  await getDatabase()
-    .collection('reaction_role_configs')
-    .updateOne(
-      { guildId, messageId, roleId },
-      { 
-        $set: { 
-          every: newTime,
-          updatedAt: new Date()
-        } 
-      }
+  const parsedTime = newTime === null ? null : parseEveryTime(newTime);
+  const normalizedTime = parsedTime
+    ? `${String(parsedTime.hours).padStart(2, '0')}:${String(parsedTime.minutes).padStart(2, '0')}`
+    : null;
+
+  return withRoleLock(roleLockKey(guildId, roleId), async () => {
+    const config = await getReactionRoleConfig(guildId, messageId, roleId);
+    if (!config) {
+      throw new Error('Không tìm thấy config này.');
+    }
+
+    await updateReactionRoleSchedule(
+      guildId,
+      messageId,
+      roleId,
+      normalizedTime,
+      normalizedTime ? getNextScheduledRevokeAt(normalizedTime) : null
     );
-  
-  const role = await import('discord.js').then(m => m);
-  const timeDisplay = newTime ? `**${newTime}**` : '**TẮT** (không tự động thu hồi)';
-  
-  return `✅ Đã cập nhật thời gian thu hồi cho <@&${roleId}> (tin nhắn \`${messageId}\`):\n` +
-         `⏰ Thời gian mới: ${timeDisplay}\n` +
-         `📊 Số người đang có role: **${config.claimants?.length || 0}**`;
+
+    const timeDisplay = normalizedTime
+      ? `**${normalizedTime}**`
+      : '**TẮT** (không tự động thu hồi)';
+
+    return `✅ Đã cập nhật thời gian thu hồi cho <@&${roleId}> (tin nhắn \`${messageId}\`):\n` +
+           `⏰ Thời gian mới: ${timeDisplay}\n` +
+           `📊 Số người đang có role: **${config.claimants?.length || 0}**`;
+  });
 }
 
 export async function handleReactionRoleMemberRemove(member) {
@@ -768,6 +783,9 @@ export async function processScheduledReactionRoleRevoke(client) {
   const now = new Date();
   const timeParts = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
     hourCycle: 'h23'
@@ -778,7 +796,7 @@ export async function processScheduledReactionRoleRevoke(client) {
 
   console.log(`[Reaction Role Scheduler] Checking scheduled revoke at ${currentTime}...`);
   
-  const scheduledConfigs = await getScheduledReactionRoleConfigs(currentTime);
+  const scheduledConfigs = await getScheduledReactionRoleConfigs(now, currentTime);
   
   if (scheduledConfigs.length === 0) {
     console.log(`[Reaction Role Scheduler] No configs scheduled for ${currentTime}`);
@@ -788,13 +806,32 @@ export async function processScheduledReactionRoleRevoke(client) {
   console.log(`[Reaction Role Scheduler] Found ${scheduledConfigs.length} config(s) scheduled for ${currentTime}`);
 
   for (const config of scheduledConfigs) {
-    console.log(`[Reaction Role Scheduler] Processing config: messageId=${config.messageId}, roleId=${config.roleId}, claimants=${config.claimants?.length || 0}`);
+    const isDue = claimant => (
+      isScheduledRevokeDue(claimant, now)
+      || (!claimant.nextRevokeAt && config.every === currentTime)
+    );
     // Take a snapshot because each successful revoke removes the claimant from MongoDB.
-    // The schedule itself remains on the config, so it will be selected again tomorrow
-    // after members react again.
-    const claimants = [...(config.claimants || [])];
+    const claimants = (config.claimants || []).filter(isDue);
+    if (!claimants.length) continue;
+
+    console.log(`[Reaction Role Scheduler] Processing config: messageId=${config.messageId}, roleId=${config.roleId}, dueClaimants=${claimants.length}`);
     for (const claimant of claimants) {
       await withRoleLock(roleLockKey(config.guildId, config.roleId), async () => {
+        const currentConfig = await getReactionRoleConfig(
+          config.guildId,
+          config.messageId,
+          config.roleId
+        );
+        const currentClaim = currentConfig?.claimants?.find(
+          item => item.userId === claimant.userId
+        );
+        if (
+          !currentConfig
+          || currentConfig.every !== config.every
+          || !currentClaim
+          || !isDue(currentClaim)
+        ) return;
+
         const guild = client.guilds.cache.get(config.guildId);
         if (!guild) {
           console.warn(
@@ -808,7 +845,7 @@ export async function processScheduledReactionRoleRevoke(client) {
           member = await guild.members.fetch(claimant.userId);
         } catch (error) {
           if (error.code === 10007 || error.code === 10013) {
-            await removeReactionRoleClaim(config, claimant.userId);
+            await removeReactionRoleClaim(currentConfig, claimant.userId);
             return;
           }
           throw error;
@@ -826,7 +863,7 @@ export async function processScheduledReactionRoleRevoke(client) {
 
         if (
           !hasOtherActiveClaim
-          && !claimant.roleWasPreexisting
+          && !currentClaim.roleWasPreexisting
           && member.roles.cache.has(config.roleId)
         ) {
           const role = guild.roles.cache.get(config.roleId)
@@ -848,14 +885,14 @@ export async function processScheduledReactionRoleRevoke(client) {
 
         // Gỡ reaction của user khi đến giờ scheduled revoke
         try {
-          const channel = guild.channels.cache.get(config.channelId);
+          const channel = guild.channels.cache.get(currentConfig.channelId);
           if (channel) {
-            const message = await channel.messages.fetch(config.messageId).catch(() => null);
+            const message = await channel.messages.fetch(currentConfig.messageId).catch(() => null);
             if (message) {
               // Tìm reaction tương ứng với config
               const reactionToRemove = message.reactions.cache.find(r => {
                 const emojiKey = r.emoji.id || r.emoji.name;
-                return config.emojiKey === emojiKey || config.emojiKey === 'all';
+                return currentConfig.emojiKey === emojiKey || currentConfig.emojiKey === 'all';
               });
               if (reactionToRemove) {
                 await reactionToRemove.users.remove(claimant.userId);
@@ -867,7 +904,7 @@ export async function processScheduledReactionRoleRevoke(client) {
           console.error(`[ERROR] Failed to remove reaction for scheduled revoke:`, error);
         }
 
-        await removeReactionRoleClaim(config, claimant.userId);
+        await removeReactionRoleClaim(currentConfig, claimant.userId);
         console.info(
           `[INFO] Scheduled revoke reaction role for member ${claimant.userId}, role ${config.roleId} at ${config.every}`
         );

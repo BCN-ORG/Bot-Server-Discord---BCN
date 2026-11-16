@@ -25,6 +25,7 @@ import { createApiKeyAuth } from './middleware/apiKeyAuth.js';
 import { handleGuildMemberKick } from './features/kickManager/kick.js';
 import { initCoinRandomScheduler } from './features/coinRandom/index.js';
 import { initBatteryAlertScheduler } from './features/system-monitoring/alertScheduler.js';
+import { initScheduleIndexes } from './database/schedule.js';
 
 const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
 
@@ -78,6 +79,7 @@ client.once('ready', async () => {
   // Kết nối MongoDB (discord_bot database)
   try {
     await connectMongoDB();
+    await initScheduleIndexes();
     // Initialize fine indexes
     const { initFineIndexes } = await import('./database/fines.js');
     await initFineIndexes();

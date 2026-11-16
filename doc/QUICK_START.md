@@ -50,9 +50,15 @@ API_KEYS=replace_with_a_long_random_key
 # Payroll (REQUIRED for payroll feature)
 PAYROLL_API_KEY=your_api_key
 PAYROLL_API_BASE_URL=http://host:3000/api/payroll
+
+# Schedule feature (REQUIRED to log in and store credentials)
+SCHEDULE_API_CLIENT_SECRET=client_secret_duoc_cap
+SCHEDULE_TOKEN_ENCRYPTION_KEY=64_ky_tu_hex_tuong_duong_32_byte
 ```
 
 Khi thay/rotate key trong env, khởi động lại server để áp dụng cấu hình mới.
+Tạo encryption key cho chức năng xem lịch bằng
+`node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`.
 
 ### 4. Run
 ```bash
@@ -79,6 +85,7 @@ node src/index.js
 |---------|----------|--------------|
 | **Name Validation** | `/rename` | Check on join, kick after 48h |
 | **Payroll System** | `/salary-coefficient`<br>`/salary-roles`<br>`/salary-schedule`<br>`/salary-payout-now` | Weekly auto-pay |
+| **Xem lịch học** | `/lich-hoc`<br>`/lich-hoc-login`<br>`/lich-hoc-roles` | Lịch theo ngày, phân quyền theo role |
 
 ---
 

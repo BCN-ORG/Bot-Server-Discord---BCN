@@ -2,6 +2,7 @@
  * Modal handler for reaction role setup
  */
 
+import { MessageFlags } from 'discord.js';
 import { setConfig } from './controller.js';
 
 /**
@@ -10,7 +11,7 @@ import { setConfig } from './controller.js';
  */
 export async function handleReactionRoleModal(interaction) {
   try {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     // Parse customId: reaction_role_modal:messageId:roleId:emoji
     const parts = interaction.customId.split(':');
@@ -105,7 +106,7 @@ export async function handleReactionRoleModal(interaction) {
     } else {
       await interaction.reply({
         content: `❌ **Lỗi:** ${errorMessage}`,
-        ephemeral: true
+        flags: MessageFlags.Ephemeral
       });
     }
   }

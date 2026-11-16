@@ -114,6 +114,14 @@ một kết quả riêng trong từng sự kiện, không có giao dịch coins.
 
 **Lệnh**: `/coin-random create`
 
+### 9. 📅 Xem lịch học
+📄 **[SCHEDULE_FEATURE.md](./study-schedule/SCHEDULE_FEATURE.md)**
+
+**Mô tả**: Thành viên có role được cấp quyền đăng nhập và xem lịch học, lịch thi
+theo ngày; token được mã hóa khi lưu trong MongoDB.
+
+**Lệnh**: `/lich-hoc`, `/lich-hoc-login`, `/lich-hoc-roles`
+
 ---
 
 ## 🗂️ Cấu trúc mã nguồn
@@ -173,6 +181,7 @@ src/
 | **Role tạm thời** | [📄](./temporary-roles/TEMPORARY_ROLES.md) | `src/features/temporaryRoles/index.js` | `/role` |
 | **Biên bản phạt coins** | [📄](./fine-reports/FINE_REPORTS.md) | `src/features/fineReports/index.js` | `/fine` |
 | **Sự kiện random coins** | [📄](./random-coins/RANDOM_COINS.md) | `src/features/coinRandom/index.js` | `/coin-random` |
+| **Xem lịch học** | [📄](./study-schedule/SCHEDULE_FEATURE.md) | `src/features/schedule/` | `/lich-hoc`, `/lich-hoc-login`, `/lich-hoc-roles` |
 
 ---
 
