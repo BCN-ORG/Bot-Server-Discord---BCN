@@ -175,6 +175,10 @@ export function setupInteractionHandlers(client) {
         await scheduleRolesFeature.execute(interaction);
       }
 
+      if (interaction.isButton() && interaction.customId.startsWith('schedule_')) {
+        await scheduleFeature.execute(interaction);
+      }
+
       if (interaction.isChatInputCommand() && interaction.commandName === 'kick-manager') {
         await kickManagerFeature.execute(interaction);
       }

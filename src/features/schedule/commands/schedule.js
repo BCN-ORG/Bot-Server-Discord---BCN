@@ -1,25 +1,10 @@
-import { EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import { getScheduleAuthorizedRoles } from '../../../database/schedule.js';
 import { getScheduleForDate, ScheduleLoginRequiredError } from '../services/scheduleApi.js';
 
-const timeBlocks = [
-  [1, 3, '06:30 - 08:55'],
-  [4, 6, '09:05 - 11:30'],
-  [7, 9, '12:30 - 14:55'],
-  [10, 12, '15:05 - 17:30'],
-  [13, 15, '17:45 - 20:10']
-];
-
 export const data = new SlashCommandBuilder()
   .setName('lich-hoc')
-  .setDescription('Xem lịch học và lịch thi theo ngày')
-  .addStringOption(option =>
-    option
-      .setName('ngay')
-      .setDescription('Ngày cần xem theo định dạng YYYY-MM-DD (mặc định là hôm nay)')
-      .setMinLength(10)
-      .setMaxLength(10)
-  );
+  .setDescription('Xem lịch học và lịch thi theo tuần');
 
 export function getVietnamDate() {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -49,12 +34,8 @@ function getPeriod(item) {
 
   const start = Number(match[1]);
   const end = Number(match[2] || match[1]);
-  const blocks = timeBlocks.filter(([first, last]) => end >= first && start <= last);
-  const time = blocks.length
-    ? `${blocks[0][2].split(' - ')[0]} - ${blocks.at(-1)[2].split(' - ')[1]}`
-    : 'Chưa rõ giờ';
   return {
-    label: `${time} · Tiết ${start}${end === start ? '' : `-${end}`}`,
+    label: `Tiết ${start}${end === start ? '' : `-${end}`}`,
     start
   };
 }
@@ -63,7 +44,7 @@ function formatScheduleItem(item) {
   const period = getPeriod(item);
   const isExam = item.loaiLich === 2 || item.isLichHoc === false;
   const details = [
-    `**${isExam ? 'Lịch thi' : 'Lịch học'} · ${period.label}**`,
+    `${isExam ? 'Lịch thi' : 'Lịch học'} · ${period.label}`,
     `Môn: ${item.tenMonHoc || 'Chưa có tên môn'}`,
     `Phòng: ${item.tenPhong || getDetail(item, 'Phòng') || 'Chưa có phòng'}`
   ];
@@ -77,7 +58,138 @@ function formatScheduleItem(item) {
   return { start: period.start, text: details.join('\n') };
 }
 
+function getMondayOfWeek(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day; // If Sunday (0), go back 6 days, otherwise go to Monday
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+function formatDateYYYYMMDD(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateDDMMYYYY(date) {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+function getVietnameseDayName(dayOfWeek) {
+  const names = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+  return names[dayOfWeek];
+}
+
+async function fetchWeekSchedule(userId, mondayDate) {
+  const promises = [];
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(mondayDate);
+    date.setDate(date.getDate() + i);
+    const dateStr = formatDateYYYYMMDD(date);
+    promises.push(
+      getScheduleForDate(userId, dateStr)
+        .then(schedule => ({ date, schedule }))
+        .catch(() => ({ date, schedule: [] }))
+    );
+  }
+  return Promise.all(promises);
+}
+
+function buildWeekEmbed(weekData, mondayDateStr) {
+  let description = '';
+  let hasAnySchedule = false;
+
+  for (const { date, schedule } of weekData) {
+    const dayName = getVietnameseDayName(date.getDay());
+    const dateFormatted = formatDateDDMMYYYY(date);
+    description += `**${dayName} - ${dateFormatted}**\n`;
+
+    if (schedule.length === 0) {
+      description += 'Không có lịch\n\n';
+    } else {
+      hasAnySchedule = true;
+      const items = schedule
+        .map(formatScheduleItem)
+        .sort((left, right) => left.start - right.start);
+      
+      for (const item of items) {
+        description += `${item.text}\n\n`;
+      }
+    }
+  }
+
+  const monday = new Date(mondayDateStr);
+  const sunday = new Date(monday);
+  sunday.setDate(sunday.getDate() + 6);
+  const title = `Lịch học tuần ${formatDateDDMMYYYY(monday)} - ${formatDateDDMMYYYY(sunday)}`;
+
+  const embed = new EmbedBuilder()
+    .setColor('#2463a6')
+    .setTitle(title)
+    .setDescription(description.trim());
+
+  return embed;
+}
+
+function buildNavigationButtons(mondayDateStr) {
+  const monday = new Date(mondayDateStr);
+  
+  const prevMonday = new Date(monday);
+  prevMonday.setDate(prevMonday.getDate() - 7);
+  const prevMondayStr = formatDateYYYYMMDD(prevMonday);
+  
+  const nextMonday = new Date(monday);
+  nextMonday.setDate(nextMonday.getDate() + 7);
+  const nextMondayStr = formatDateYYYYMMDD(nextMonday);
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`schedule_prev_${prevMondayStr}`)
+      .setLabel('◀️ Tuần trước')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`schedule_next_${nextMondayStr}`)
+      .setLabel('▶️ Tuần sau')
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  return row;
+}
+
 export async function execute(interaction) {
+  // Handle button interactions
+  if (interaction.isButton() && interaction.customId.startsWith('schedule_')) {
+    const mondayDateStr = interaction.customId.split('_')[2];
+    
+    if (!isValidDate(mondayDateStr)) {
+      await interaction.reply({ content: 'Dữ liệu không hợp lệ.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    await interaction.deferUpdate();
+    
+    try {
+      const weekData = await fetchWeekSchedule(interaction.user.id, mondayDateStr);
+      const embed = buildWeekEmbed(weekData, mondayDateStr);
+      const buttons = buildNavigationButtons(mondayDateStr);
+      
+      await interaction.editReply({ embeds: [embed], components: [buttons] });
+    } catch (error) {
+      if (error instanceof ScheduleLoginRequiredError) {
+        await interaction.editReply({ content: error.message, embeds: [], components: [] });
+        return;
+      }
+      throw error;
+    }
+    return;
+  }
+
+  // Handle slash command
   if (!interaction.inGuild() || !interaction.member) {
     await interaction.reply({ content: 'Lệnh này chỉ dùng được trong máy chủ.', flags: MessageFlags.Ephemeral });
     return;
@@ -91,39 +203,18 @@ export async function execute(interaction) {
     return;
   }
 
-  const date = interaction.options.getString('ngay') || getVietnamDate();
-  if (!isValidDate(date)) {
-    await interaction.editReply('Ngày không hợp lệ. Hãy nhập theo định dạng YYYY-MM-DD, ví dụ 2026-11-17.');
-    return;
-  }
-
   try {
-    const schedule = await getScheduleForDate(interaction.user.id, date);
-    if (schedule.length === 0) {
-      await interaction.editReply(`Không có lịch học hoặc lịch thi ngày **${date}**.`);
-      return;
-    }
+    // Get Monday of current week
+    const today = getVietnamDate();
+    const todayDate = new Date(`${today}T00:00:00Z`);
+    const monday = getMondayOfWeek(todayDate);
+    const mondayDateStr = formatDateYYYYMMDD(monday);
 
-    const items = schedule
-      .map(formatScheduleItem)
-      .sort((left, right) => left.start - right.start);
-    let description = '';
-    let displayed = 0;
-    for (const item of items) {
-      const next = `${description ? '\n\n' : ''}${item.text}`;
-      if (description.length + next.length > 3900) break;
-      description += next;
-      displayed++;
-    }
-    if (displayed < items.length) {
-      description += `\n\nCòn ${items.length - displayed} lịch khác không thể hiển thị trong một tin nhắn.`;
-    }
+    const weekData = await fetchWeekSchedule(interaction.user.id, mondayDateStr);
+    const embed = buildWeekEmbed(weekData, mondayDateStr);
+    const buttons = buildNavigationButtons(mondayDateStr);
 
-    const embed = new EmbedBuilder()
-      .setColor('#2463a6')
-      .setTitle(`Lịch học ngày ${date.split('-').reverse().join('/')}`)
-      .setDescription(description);
-    await interaction.editReply({ embeds: [embed] });
+    await interaction.editReply({ embeds: [embed], components: [buttons] });
   } catch (error) {
     if (error instanceof ScheduleLoginRequiredError) {
       await interaction.editReply(error.message);
