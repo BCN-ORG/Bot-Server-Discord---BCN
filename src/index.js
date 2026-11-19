@@ -26,6 +26,7 @@ import { handleGuildMemberKick } from './features/kickManager/kick.js';
 import { initCoinRandomScheduler } from './features/coinRandom/index.js';
 import { initBatteryAlertScheduler } from './features/system-monitoring/alertScheduler.js';
 import { initScheduleIndexes } from './database/schedule.js';
+import { initScheduleNotificationScheduler } from './features/schedule/schedulers/scheduleNotificationScheduler.js';
 
 const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
 
@@ -122,6 +123,9 @@ client.once('ready', async () => {
 
   // Start hourly Termux battery reports.
   initBatteryAlertScheduler(client);
+
+  // Start schedule notification scheduler.
+  initScheduleNotificationScheduler(client);
   
   console.log('[INFO] Bot đang hoạt động!');
 });

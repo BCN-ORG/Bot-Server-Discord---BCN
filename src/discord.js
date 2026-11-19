@@ -13,6 +13,7 @@ import * as batteryAlertFeature from './features/system-monitoring/alertCommand.
 import * as scheduleFeature from './features/schedule/commands/schedule.js';
 import * as scheduleLoginFeature from './features/schedule/commands/login.js';
 import * as scheduleRolesFeature from './features/schedule/commands/roles.js';
+import * as scheduleNotificationFeature from './features/schedule/commands/scheduleNotification.js';
 import {
   execute as kickExecute,
   executeRollback as kickRollbackExecute,
@@ -65,7 +66,8 @@ export async function registerCommands(token, clientId, guildId) {
     batteryAlertFeature.data.toJSON(),
     scheduleFeature.data.toJSON(),
     scheduleLoginFeature.data.toJSON(),
-    scheduleRolesFeature.data.toJSON()
+    scheduleRolesFeature.data.toJSON(),
+    scheduleNotificationFeature.data.toJSON()
   ];
 
   const rest = new REST({ version: '10' }).setToken(token);
@@ -173,6 +175,10 @@ export function setupInteractionHandlers(client) {
 
       if (interaction.isChatInputCommand() && interaction.commandName === 'lich-hoc-roles') {
         await scheduleRolesFeature.execute(interaction);
+      }
+
+      if (interaction.isChatInputCommand() && interaction.commandName === 'lich-hoc-notification') {
+        await scheduleNotificationFeature.execute(interaction);
       }
 
       if (interaction.isButton() && interaction.customId.startsWith('schedule_')) {

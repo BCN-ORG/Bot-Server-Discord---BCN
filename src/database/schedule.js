@@ -51,3 +51,29 @@ export async function removeScheduleAuthorizedRole(guildId, roleId) {
   );
   return result.modifiedCount > 0;
 }
+
+export async function setScheduleNotificationTime(guildId, time) {
+  await getDatabase().collection(CONFIG_COLLECTION).updateOne(
+    { guildId },
+    { 
+      $set: { 
+        notificationTime: time, 
+        timezone: 'Asia/Ho_Chi_Minh',
+        updatedAt: new Date() 
+      } 
+    },
+    { upsert: true }
+  );
+}
+
+export async function getScheduleNotificationTime(guildId) {
+  const config = await getDatabase().collection(CONFIG_COLLECTION).findOne({ guildId });
+  return config?.notificationTime ?? null;
+}
+
+export async function getAllScheduleNotificationConfigs() {
+  return getDatabase()
+    .collection(CONFIG_COLLECTION)
+    .find({ notificationTime: { $exists: true, $ne: null } })
+    .toArray();
+}
