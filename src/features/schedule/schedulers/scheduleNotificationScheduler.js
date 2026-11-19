@@ -120,7 +120,7 @@ async function sendScheduleNotifications(client) {
           const credentials = await getScheduleCredentials(member.user.id);
           if (!credentials) {
             try {
-              await member.send('Bạn chưa đăng nhập hệ thống lịch. Vui lòng dùng /lich-hoc để đăng nhập.');
+              await member.send('Bạn chưa đăng nhập hệ thống lịch. Vui lòng dùng /lich-hoc-login để đăng nhập.');
               console.log(`[Schedule Notification] Sent login reminder to ${member.user.tag}`);
               skippedCount++;
             } catch (dmError) {
