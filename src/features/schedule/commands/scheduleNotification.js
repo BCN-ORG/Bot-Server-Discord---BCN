@@ -60,6 +60,8 @@ export async function execute(interaction) {
 
     await setScheduleNotificationTime(interaction.guildId, validation.time);
     
+    console.log(`[Schedule Notification] Admin ${interaction.user.tag} set notification time to ${validation.time} for guild ${interaction.guild.name} (${interaction.guildId})`);
+    
     await interaction.reply({ 
       content: `Đã đặt thời gian thông báo lịch học hàng ngày lúc ${validation.time}`, 
       flags: MessageFlags.Ephemeral 
