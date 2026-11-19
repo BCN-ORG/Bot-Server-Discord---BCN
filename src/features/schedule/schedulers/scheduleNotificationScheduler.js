@@ -119,6 +119,7 @@ async function sendScheduleNotifications(client) {
           // Check if user is logged in
           const credentials = await getScheduleCredentials(member.user.id);
           if (!credentials) {
+            console.log(`[Schedule Notification] User ${member.user.tag} not logged in - sending reminder`);
             try {
               await member.send('Bạn chưa đăng nhập hệ thống lịch. Vui lòng dùng /lich-hoc-login để đăng nhập.');
               console.log(`[Schedule Notification] Sent login reminder to ${member.user.tag}`);
@@ -131,9 +132,11 @@ async function sendScheduleNotifications(client) {
           }
 
           // Get today's schedule
+          console.log(`[Schedule Notification] Fetching schedule for ${member.user.tag} on ${date}`);
           const schedule = await getScheduleForDate(member.user.id, date);
           
           if (!schedule || schedule.length === 0) {
+            console.log(`[Schedule Notification] User ${member.user.tag} has no schedule for ${date} - skipping`);
             skippedCount++;
             continue; // No schedule, skip without sending DM
           }
