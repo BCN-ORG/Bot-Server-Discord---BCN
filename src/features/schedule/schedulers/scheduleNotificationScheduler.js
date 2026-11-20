@@ -136,16 +136,24 @@ async function sendScheduleNotifications(client) {
           const schedule = await getScheduleForDate(member.user.id, date);
           
           if (!schedule || schedule.length === 0) {
-            console.log(`[Schedule Notification] User ${member.user.tag} has no schedule for ${date} - skipping`);
-            skippedCount++;
-            continue; // No schedule, skip without sending DM
+            // Send notification even when there's no schedule
+            console.log(`[Schedule Notification] User ${member.user.tag} has no schedule for ${date} - sending empty schedule notification`);
+            const emptyEmbed = new EmbedBuilder()
+              .setColor('#95a5a6')
+              .setTitle(`🔔 Lịch học hôm nay - ${dateFormatted}`)
+              .setDescription('Hôm nay bạn không có lịch học.')
+              .setFooter({ text: 'Nhắc nhở lịch học tự động' })
+              .setTimestamp();
+            await member.send({ embeds: [emptyEmbed] });
+            sentCount++;
+            console.log(`[Schedule Notification] Sent empty schedule notification to ${member.user.tag}`);
+          } else {
+            // Build and send embed with schedule
+            const embed = buildScheduleEmbed(schedule, dateFormatted);
+            await member.send({ embeds: [embed] });
+            sentCount++;
+            console.log(`[Schedule Notification] Sent schedule to ${member.user.tag}`);
           }
-
-          // Build and send embed
-          const embed = buildScheduleEmbed(schedule, dateFormatted);
-          await member.send({ embeds: [embed] });
-          sentCount++;
-          console.log(`[Schedule Notification] Sent schedule to ${member.user.tag}`);
 
         } catch (error) {
           if (error instanceof ScheduleLoginRequiredError) {
