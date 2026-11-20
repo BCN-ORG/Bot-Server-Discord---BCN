@@ -94,7 +94,14 @@ async function fetchWeekSchedule(userId, mondayDate) {
     promises.push(
       getScheduleForDate(userId, dateStr)
         .then(schedule => ({ date, schedule }))
-        .catch(() => ({ date, schedule: [] }))
+        .catch(error => {
+          // Re-throw login errors immediately
+          if (error instanceof ScheduleLoginRequiredError) {
+            throw error;
+          }
+          // For other errors, return empty schedule
+          return { date, schedule: [] };
+        })
     );
   }
   return Promise.all(promises);
