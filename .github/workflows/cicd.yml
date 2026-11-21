@@ -1,0 +1,196 @@
+name: CI/CD Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: cicd-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PROJECT_NAME: bot-server-discord-bcn
+  IMAGE_NAME: ghcr.io/bcn-org/bot-server-discord-bcn
+  PROJECT_DIR: /opt/apps/bot-server-discord-bcn
+
+jobs:
+  ci:
+    name: Test, Build & Push Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax check & Test
+        run: |
+          node --check src/index.js
+          npm test
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  cd:
+    name: Deploy to Production
+    needs: ci
+    runs-on:
+      - self-hosted
+      - linux
+      - production
+      - docker
+      - bcn-org
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare project directory
+        run: |
+          mkdir -p "${PROJECT_DIR}"
+          cp docker-compose.prod.yml "${PROJECT_DIR}/docker-compose.yml"
+
+      - name: Generate production .env
+        env:
+          PORT_VALUE: ${{ vars.PORT }}
+          HOST_PORT_VALUE: ${{ vars.HOST_PORT }}
+          CLIENT_ID_VALUE: ${{ vars.CLIENT_ID }}
+          GUILD_ID_VALUE: ${{ vars.GUILD_ID }}
+          MONGODB_DB_NAME_VALUE: ${{ vars.MONGODB_DB_NAME }}
+          CORS_ALLOWED_ORIGINS_VALUE: ${{ vars.CORS_ALLOWED_ORIGINS }}
+          PAYROLL_API_BASE_URL_VALUE: ${{ vars.PAYROLL_API_BASE_URL }}
+          VALIDATION_EXCEPTION_UIDS_VALUE: ${{ vars.VALIDATION_EXCEPTION_UIDS }}
+          DISCORD_TOKEN_VALUE: ${{ secrets.DISCORD_TOKEN }}
+          MONGODB_URI_VALUE: ${{ secrets.MONGODB_URI }}
+          API_KEYS_VALUE: ${{ secrets.API_KEYS }}
+          PAYROLL_API_KEY_VALUE: ${{ secrets.PAYROLL_API_KEY }}
+          SCHEDULE_TOKEN_ENCRYPTION_KEY_VALUE: ${{ secrets.SCHEDULE_TOKEN_ENCRYPTION_KEY }}
+          SCHEDULE_API_CLIENT_SECRET_VALUE: ${{ secrets.SCHEDULE_API_CLIENT_SECRET }}
+        run: |
+          ENV_FILE="${PROJECT_DIR}/.env"
+          {
+            printf 'IMAGE_NAME=%s\n' "${IMAGE_NAME}"
+            printf 'IMAGE_TAG=%s\n' "${GITHUB_SHA}"
+            printf 'APP_VERSION=%s\n' "${GITHUB_SHA}"
+            printf 'PORT=%s\n' "${PORT_VALUE}"
+            printf 'HOST_PORT=%s\n' "${HOST_PORT_VALUE}"
+            printf 'CLIENT_ID=%s\n' "${CLIENT_ID_VALUE}"
+            printf 'GUILD_ID=%s\n' "${GUILD_ID_VALUE}"
+            printf 'MONGODB_DB_NAME=%s\n' "${MONGODB_DB_NAME_VALUE}"
+            printf 'CORS_ALLOWED_ORIGINS=%s\n' "${CORS_ALLOWED_ORIGINS_VALUE}"
+            printf 'PAYROLL_API_BASE_URL=%s\n' "${PAYROLL_API_BASE_URL_VALUE}"
+            printf 'VALIDATION_EXCEPTION_UIDS=%s\n' "${VALIDATION_EXCEPTION_UIDS_VALUE}"
+            printf 'DISCORD_TOKEN=%s\n' "${DISCORD_TOKEN_VALUE}"
+            printf 'MONGODB_URI=%s\n' "${MONGODB_URI_VALUE}"
+            printf 'API_KEYS=%s\n' "${API_KEYS_VALUE}"
+            printf 'PAYROLL_API_KEY=%s\n' "${PAYROLL_API_KEY_VALUE}"
+            printf 'SCHEDULE_TOKEN_ENCRYPTION_KEY=%s\n' "${SCHEDULE_TOKEN_ENCRYPTION_KEY_VALUE}"
+            printf 'SCHEDULE_API_CLIENT_SECRET=%s\n' "${SCHEDULE_API_CLIENT_SECRET_VALUE}"
+          } > "${ENV_FILE}"
+          chmod 600 "${ENV_FILE}"
+
+      - name: Validate .env before deploy
+        run: |
+          ENV_FILE="${PROJECT_DIR}/.env"
+          FAILED=0
+
+          while IFS= read -r line || [ -n "$line" ]; do
+            case "$line" in
+              ''|\#*) continue ;;
+            esac
+
+            KEY="${line%%=*}"
+            IS_OPTIONAL=0
+            case "$line" in
+              *"# optional"*) IS_OPTIONAL=1 ;;
+            esac
+
+            if ! grep -q "^${KEY}=" "${ENV_FILE}"; then
+              echo "❌ Missing ENV key in .env: ${KEY}"
+              FAILED=1
+              continue
+            fi
+
+            VAL=$(grep -m1 "^${KEY}=" "${ENV_FILE}" | cut -d= -f2-)
+            if [ "${IS_OPTIONAL}" -eq 0 ] && [ -z "${VAL}" ]; then
+              echo "❌ Missing ENV: ${KEY}"
+              FAILED=1
+            else
+              echo "✅ ENV OK: ${KEY}"
+            fi
+          done < .env.example
+
+          if [ "${FAILED}" -ne 0 ]; then
+            echo "❌ Environment validation failed"
+            exit 1
+          fi
+
+      - name: Pull Docker image
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: docker compose pull app
+
+      - name: Deploy container
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: docker compose up -d --remove-orphans
+
+      - name: Health check
+        env:
+          HOST_PORT_VALUE: ${{ vars.HOST_PORT }}
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          HEALTH_URL="http://127.0.0.1:${HOST_PORT_VALUE}/api/health"
+          for i in $(seq 1 15); do
+            if curl -fsS "${HEALTH_URL}" > /dev/null; then
+              echo "✅ Application healthy (${HEALTH_URL})"
+              exit 0
+            fi
+            echo "Attempt ${i}/15 failed, retrying in 2s..."
+            sleep 2
+          done
+
+          echo "❌ Health check failed after 15 attempts"
+          docker compose ps
+          docker compose logs --tail=100 app
+          exit 1
