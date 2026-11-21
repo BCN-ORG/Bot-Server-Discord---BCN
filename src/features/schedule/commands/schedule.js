@@ -143,7 +143,7 @@ function buildWeekEmbed(weekData, mondayDateStr) {
   return embed;
 }
 
-function buildNavigationButtons(mondayDateStr) {
+function buildNavigationButtons(mondayDateStr, disabled = false) {
   const monday = new Date(mondayDateStr);
   
   const prevMonday = new Date(monday);
@@ -158,11 +158,13 @@ function buildNavigationButtons(mondayDateStr) {
     new ButtonBuilder()
       .setCustomId(`schedule_prev_${prevMondayStr}`)
       .setLabel('◀️ Tuần trước')
-      .setStyle(ButtonStyle.Secondary),
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(disabled),
     new ButtonBuilder()
       .setCustomId(`schedule_next_${nextMondayStr}`)
       .setLabel('▶️ Tuần sau')
       .setStyle(ButtonStyle.Secondary)
+      .setDisabled(disabled)
   );
 
   return row;
@@ -178,12 +180,14 @@ export async function execute(interaction) {
       return;
     }
 
-    await interaction.deferUpdate();
+    // Disable buttons immediately
+    const disabledButtons = buildNavigationButtons(mondayDateStr, true);
+    await interaction.update({ components: [disabledButtons] });
     
     try {
       const weekData = await fetchWeekSchedule(interaction.user.id, mondayDateStr);
       const embed = buildWeekEmbed(weekData, mondayDateStr);
-      const buttons = buildNavigationButtons(mondayDateStr);
+      const buttons = buildNavigationButtons(mondayDateStr, false);
       
       await interaction.editReply({ embeds: [embed], components: [buttons] });
     } catch (error) {
