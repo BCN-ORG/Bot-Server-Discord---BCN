@@ -112,21 +112,22 @@ function buildWeekEmbed(weekData, mondayDateStr) {
   let hasAnySchedule = false;
 
   for (const { date, schedule } of weekData) {
+    // Skip days with no schedule
+    if (schedule.length === 0) {
+      continue;
+    }
+
+    hasAnySchedule = true;
     const dayName = getVietnameseDayName(date.getDay());
     const dateFormatted = formatDateDDMMYYYY(date);
     description += `**${dayName} - ${dateFormatted}**\n`;
 
-    if (schedule.length === 0) {
-      description += 'Không có lịch\n\n';
-    } else {
-      hasAnySchedule = true;
-      const items = schedule
-        .map(formatScheduleItem)
-        .sort((left, right) => left.start - right.start);
-      
-      for (const item of items) {
-        description += `${item.text}\n\n`;
-      }
+    const items = schedule
+      .map(formatScheduleItem)
+      .sort((left, right) => left.start - right.start);
+    
+    for (const item of items) {
+      description += `${item.text}\n\n`;
     }
   }
 
@@ -134,6 +135,11 @@ function buildWeekEmbed(weekData, mondayDateStr) {
   const sunday = new Date(monday);
   sunday.setDate(sunday.getDate() + 6);
   const title = `Lịch học tuần ${formatDateDDMMYYYY(monday)} - ${formatDateDDMMYYYY(sunday)}`;
+
+  // If no schedule for entire week
+  if (!hasAnySchedule) {
+    description = 'Tuần này không có lịch học.';
+  }
 
   const embed = new EmbedBuilder()
     .setColor('#2463a6')
