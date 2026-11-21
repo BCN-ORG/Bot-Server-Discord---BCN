@@ -180,9 +180,12 @@ export async function execute(interaction) {
       return;
     }
 
-    // Disable buttons immediately
+    // Get current embed to preserve during loading
+    const currentEmbed = interaction.message.embeds[0];
+    
+    // Disable both buttons and show loading spinner on clicked button
     const disabledButtons = buildNavigationButtons(mondayDateStr, true);
-    await interaction.update({ components: [disabledButtons] });
+    await interaction.update({ embeds: [currentEmbed], components: [disabledButtons] });
     
     try {
       const weekData = await fetchWeekSchedule(interaction.user.id, mondayDateStr);
