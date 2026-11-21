@@ -186,12 +186,14 @@ export async function execute(interaction) {
       return;
     }
 
-    // Get current embed to preserve during loading
-    const currentEmbed = interaction.message.embeds[0];
+    // Show loading message
+    const loadingEmbed = new EmbedBuilder()
+      .setColor('#ffa500')
+      .setDescription('⏳ Đang tải lịch học...');
     
-    // Disable both buttons and show loading spinner on clicked button
+    // Disable both buttons and show loading message
     const disabledButtons = buildNavigationButtons(mondayDateStr, true);
-    await interaction.update({ embeds: [currentEmbed], components: [disabledButtons] });
+    await interaction.update({ embeds: [loadingEmbed], components: [disabledButtons] });
     
     try {
       const weekData = await fetchWeekSchedule(interaction.user.id, mondayDateStr);
